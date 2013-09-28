@@ -51,7 +51,8 @@
   (when str
     (setq easy-kill-candidate str)
     ;; Immediately put it in clipboard for other applications.
-    (funcall interprogram-cut-function str)
+    (and interprogram-cut-function
+         (funcall interprogram-cut-function str))
     (easy-kill-message-nolog "%s" str)))
 
 (defun easy-kill-map ()
