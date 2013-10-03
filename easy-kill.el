@@ -159,6 +159,7 @@ It inspects char properties `help-echo', `shr-url' and
          (or (let ((cmd (lookup-key map (this-command-keys))))
                (eq this-command
                    (if (and (numberp cmd)
+                            universal-argument-num-events
                             (> (length (this-command-keys))
                                universal-argument-num-events))
                        (lookup-key map (substring (this-command-keys)
