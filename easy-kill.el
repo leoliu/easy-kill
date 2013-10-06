@@ -42,32 +42,6 @@
   :type '(repeat (cons character symbol))
   :group 'killing)
 
-(defface easy-kill-face '((t (:inherit 'secondary-selection)))
-  "Faced used to highlight kill candidate."
-  :group 'killing)
-
-(defun easy-kill-message-nolog (format-string &rest args)
-  "Same as `message' except not writing to *Messages* buffer."
-  (let (message-log-max)
-    (apply 'message format-string args)))
-
-(defvar easy-kill-candidate nil)
-
-(defun easy-kill-candidate ()
-  (when (overlayp easy-kill-candidate)
-    (if (eq (overlay-start easy-kill-candidate)
-            (overlay-end easy-kill-candidate))
-        (overlay-get easy-kill-candidate 'candidate)
-      (buffer-substring (overlay-start easy-kill-candidate)
-                        (overlay-end easy-kill-candidate)))))
-
-(defun easy-kill-select-text ()
-  "Make current kill candidate available to other programs."
-  (let ((candidate (easy-kill-candidate)))
-    (and candidate
-         interprogram-cut-function
-         (funcall interprogram-cut-function candidate))))
-
 (defun easy-kill-map ()
   (let ((map (make-sparse-keymap)))
     (define-key map "-" 'easy-kill-backward)
@@ -77,9 +51,38 @@
           (number-sequence 0 9))
     (mapc (lambda (c)
             ;; (define-key map (vector meta-prefix-char c) 'easy-kill-select)
-            (define-key map (char-to-string c) 'easy-kill-select))
+            (define-key map (char-to-string c) 'easy-kill-thing))
           (mapcar 'car easy-kill-alist))
     map))
+
+(defface easy-kill-face '((t (:inherit 'secondary-selection)))
+  "Faced used to highlight kill candidate."
+  :group 'killing)
+
+(defun easy-kill-message-nolog (format-string &rest args)
+  "Same as `message' except not writing to *Messages* buffer."
+  (let (message-log-max)
+    (apply 'message format-string args)))
+
+(defun easy-kill-strip-trailing (s)
+  (if (string-match "[ \t\f\r\n]*\\'" s)
+      (substring s 0 (match-beginning 0))
+    (error "`string-match' failed in `easy-kill-strip'")))
+
+(defvar easy-kill-candidate nil)
+
+(defun easy-kill-candidate ()
+  (easy-kill-strip-trailing
+   (if (/= (overlay-start easy-kill-candidate)
+           (overlay-end easy-kill-candidate))
+       (buffer-substring (overlay-start easy-kill-candidate)
+                         (overlay-end easy-kill-candidate))
+     (overlay-get easy-kill-candidate 'candidate))))
+
+(defun easy-kill-select-text ()
+  "Make current kill candidate available to other programs."
+  (and interprogram-cut-function
+       (funcall interprogram-cut-function (easy-kill-candidate))))
 
 (defun easy-kill-forward (n)
   (interactive "p")
@@ -105,31 +108,40 @@
   (interactive "p")
   (easy-kill-forward (- n)))
 
-(defun easy-kill-thing (thing &optional n)
-  ;; Return non-nil if succeed
-  (when (and thing
-             (let ((n (or n 1)))
-               (cond
-                ((intern-soft (format "easy-kill-on-%s" thing))
-                 (funcall (intern-soft (format "easy-kill-on-%s" thing)) n))
-                ((eq thing (overlay-get easy-kill-candidate 'thing))
-                 (easy-kill-forward n))
-                (t (let ((bounds (bounds-of-thing-at-point thing)))
-                     (when bounds
-                       (move-overlay easy-kill-candidate (car bounds) (cdr bounds))
-                       (overlay-put easy-kill-candidate 'thing thing)
-                       (easy-kill-forward (1- n))
-                       t))))))
-    (easy-kill-select-text)
-    t))
+(defun easy-kill-digit-argument (&optional n)
+  (interactive
+   (list (- (logand (if (integerp last-command-event)
+                        last-command-event
+                      (get last-command-event 'ascii-character))
+                    ?\177)
+            ?0)))
+  (easy-kill-thing (overlay-get easy-kill-candidate 'thing) n))
 
-(defun easy-kill-select (n)
-  (interactive "p")
-  (let ((thing (cdr (assoc (car (last (listify-key-sequence
-                                       (single-key-description last-command-event))))
-                           easy-kill-alist))))
-    (or (easy-kill-thing thing n)
-        (easy-kill-message-nolog "No `%s' at point." thing))))
+(defun easy-kill-thing (thing &optional n)
+  (interactive
+   (list (cdr (assoc (car (last (listify-key-sequence
+                                 (single-key-description last-command-event))))
+                     easy-kill-alist))
+         (prefix-numeric-value current-prefix-arg)))
+  ;; Return non-nil if succeed
+  (if (and thing
+           (let ((n (or n 1)))
+             (cond
+              ((intern-soft (format "easy-kill-on-%s" thing))
+               (funcall (intern-soft (format "easy-kill-on-%s" thing)) n))
+              ((eq thing (overlay-get easy-kill-candidate 'thing))
+               (easy-kill-forward n))
+              (t (let ((bounds (bounds-of-thing-at-point thing)))
+                   (when bounds
+                     (move-overlay easy-kill-candidate (car bounds) (cdr bounds))
+                     (overlay-put easy-kill-candidate 'thing thing)
+                     (easy-kill-forward (1- n))
+                     t))))))
+      (progn
+        (easy-kill-select-text)
+        t)
+    (ignore (when (called-interactively-p 'interact)
+              (easy-kill-message-nolog "No `%s'" thing)))))
 
 (defun easy-kill-activate-keymap ()
   (let ((map (easy-kill-map)))
@@ -153,8 +165,7 @@
                ;; `easy-kill-remember' already did the work.
                (let ((interprogram-cut-function nil)
                      (interprogram-paste-function nil))
-                 (kill-ring-save (overlay-start easy-kill-candidate)
-                                 (overlay-end easy-kill-candidate)))
+                 (kill-new (easy-kill-candidate)))
                (delete-overlay easy-kill-candidate)
                (setq easy-kill-candidate nil)
                nil)))))))
@@ -178,12 +189,17 @@
 (put 'region 'bounds-of-thing-at-point
      (lambda () (cons (region-beginning) (region-end))))
 
-(defun easy-kill-on-buffer-file-name (_n)
-  (when buffer-file-name
+(defun easy-kill-on-buffer-file-name (n)
+  (when (or buffer-file-name default-directory)
     (move-overlay easy-kill-candidate (point) (point))
-    (overlay-put easy-kill-candidate 'candidate buffer-file-name)
     (overlay-put easy-kill-candidate 'thing 'buffer-file-name)
-    (easy-kill-message-nolog "%s" buffer-file-name)
+    (let* ((file (or buffer-file-name default-directory))
+           (text (and file (if (zerop n)
+                               (file-name-nondirectory
+                                (directory-file-name file))
+                             (directory-file-name file)))))
+      (overlay-put easy-kill-candidate 'candidate text)
+      (easy-kill-message-nolog "%s" text))
     t))
 
 (provide 'easy-kill)
