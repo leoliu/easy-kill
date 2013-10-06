@@ -44,8 +44,8 @@
 
 (defun easy-kill-map ()
   (let ((map (make-sparse-keymap)))
-    (define-key map "-" 'easy-kill-backward)
-    (define-key map "+" 'easy-kill-forward)
+    (define-key map "-" 'easy-kill-shrink)
+    (define-key map "+" 'easy-kill-enlarge)
     (mapc (lambda (d)
             (define-key map (number-to-string d) 'easy-kill-digit-argument))
           (number-sequence 0 9))
@@ -84,29 +84,32 @@
   (and interprogram-cut-function
        (funcall interprogram-cut-function (easy-kill-candidate))))
 
-(defun easy-kill-forward (n)
+(defun easy-kill-enlarge (n)
   (interactive "p")
-  (let ((direction (if (minusp n) -1 +1))
-        (thing (overlay-get easy-kill-candidate 'thing))
-        (start (overlay-start easy-kill-candidate))
-        (end (overlay-end easy-kill-candidate)))
+  (let ((thing (overlay-get easy-kill-candidate 'thing)))
     (when thing
-      (save-excursion
-        (goto-char end)
-        (with-demoted-errors
-          (dotimes (_ (abs n))
-            (forward-thing thing direction)
-            (when (<= (point) start)
-              (forward-thing thing 1)
-              (return))))
-        (when (/= end (point))
-          (move-overlay easy-kill-candidate start (point))
-          (easy-kill-select-text)
-          t)))))
+      (if (get thing 'easy-kill-enlarge)
+          (funcall (get thing 'easy-kill-enlarge) n)
+        (let ((direction (if (minusp n) -1 +1))
+              (start (overlay-start easy-kill-candidate))
+              (end (overlay-end easy-kill-candidate)))
+          (when thing
+            (save-excursion
+              (goto-char end)
+              (with-demoted-errors
+                (dotimes (_ (abs n))
+                  (forward-thing thing direction)
+                  (when (<= (point) start)
+                    (forward-thing thing 1)
+                    (return))))
+              (when (/= end (point))
+                (move-overlay easy-kill-candidate start (point))
+                (easy-kill-select-text)
+                t))))))))
 
-(defun easy-kill-backward (n)
+(defun easy-kill-shrink (n)
   (interactive "p")
-  (easy-kill-forward (- n)))
+  (easy-kill-enlarge (- n)))
 
 (defun easy-kill-digit-argument (&optional n)
   (interactive
@@ -130,12 +133,12 @@
               ((intern-soft (format "easy-kill-on-%s" thing))
                (funcall (intern-soft (format "easy-kill-on-%s" thing)) n))
               ((eq thing (overlay-get easy-kill-candidate 'thing))
-               (easy-kill-forward n))
+               (easy-kill-enlarge n))
               (t (let ((bounds (bounds-of-thing-at-point thing)))
                    (when bounds
                      (move-overlay easy-kill-candidate (car bounds) (cdr bounds))
                      (overlay-put easy-kill-candidate 'thing thing)
-                     (easy-kill-forward (1- n))
+                     (easy-kill-enlarge (1- n))
                      t))))))
       (progn
         (easy-kill-select-text)
@@ -190,17 +193,21 @@
      (lambda () (cons (region-beginning) (region-end))))
 
 (defun easy-kill-on-buffer-file-name (n)
-  (when (or buffer-file-name default-directory)
-    (move-overlay easy-kill-candidate (point) (point))
-    (overlay-put easy-kill-candidate 'thing 'buffer-file-name)
-    (let* ((file (or buffer-file-name default-directory))
-           (text (and file (if (zerop n)
-                               (file-name-nondirectory
-                                (directory-file-name file))
-                             (directory-file-name file)))))
-      (overlay-put easy-kill-candidate 'candidate text)
-      (easy-kill-message-nolog "%s" text))
-    t))
+  (let ((file (or buffer-file-name default-directory)))
+    (when file
+      (move-overlay easy-kill-candidate (point) (point))
+      (overlay-put easy-kill-candidate 'thing 'buffer-file-name)
+      (let* ((file (directory-file-name file))
+             (text (cond
+                    ((zerop n) (file-name-nondirectory file))
+                    ((plusp n) file)
+                    (t (file-name-directory file)))))
+        (overlay-put easy-kill-candidate 'candidate text)
+        (easy-kill-message-nolog "%s" text))
+      t)))
+
+(put 'buffer-file-name 'easy-kill-enlarge
+     'easy-kill-on-buffer-file-name)
 
 (provide 'easy-kill)
 ;;; easy-kill.el ends here
