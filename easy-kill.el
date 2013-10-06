@@ -46,6 +46,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map "-" 'easy-kill-shrink)
     (define-key map "+" 'easy-kill-enlarge)
+    (define-key map "=" 'easy-kill-enlarge)
     (mapc (lambda (d)
             (define-key map (number-to-string d) 'easy-kill-digit-argument))
           (number-sequence 0 9))
@@ -72,6 +73,10 @@
 (defvar easy-kill-candidate nil)
 
 (defun easy-kill-candidate ()
+  "Get the kill candidate as a string.
+If the overlay specified by variable `easy-kill-candidate' has
+non-zero length, it is the string covered by the overlay.
+Otherwise, it is the value of the overlay's candidate property."
   (easy-kill-strip-trailing
    (if (/= (overlay-start easy-kill-candidate)
            (overlay-end easy-kill-candidate))
@@ -176,9 +181,13 @@
 ;;;###autoload
 (defun easy-kill ()
   (interactive)
-  (setq easy-kill-candidate (let ((o (make-overlay (point) (point))))
-                              (overlay-put o 'face 'easy-kill-face)
-                              o))
+  (setq easy-kill-candidate
+        (let ((o (make-overlay (point) (point))))
+          (overlay-put o 'face 'easy-kill-face)
+          ;; Use higher priority to avoid shadowing by, for example,
+          ;; `hl-line-mode'.
+          (overlay-put o 'priority 999)
+          o))
   (setq deactivate-mark t)
   (dolist (thing (if (use-region-p)
                      '(region url email line)
@@ -206,8 +215,7 @@
         (easy-kill-message-nolog "%s" text))
       t)))
 
-(put 'buffer-file-name 'easy-kill-enlarge
-     'easy-kill-on-buffer-file-name)
+(put 'buffer-file-name 'easy-kill-enlarge 'easy-kill-on-buffer-file-name)
 
 (provide 'easy-kill)
 ;;; easy-kill.el ends here
