@@ -3,7 +3,7 @@
 ;; Copyright (C) 2013  Leo Liu
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
-;; Version: 0.5.0
+;; Version: 0.6.0
 ;; Keywords: convenience
 ;; Created: 2013-08-12
 
@@ -22,7 +22,8 @@
 
 ;;; Commentary:
 
-;; Kill things easily in emacs.
+;; `easy-kill' aims to be a drop-in replacement for `kill-ring-save'.
+;;
 ;; To use: (global-set-key "\M-w" 'easy-kill)
 
 ;;; Code:
@@ -35,9 +36,14 @@
     (?s . sexp)
     (?l . list)
     (?f . filename)
-    (?d . defun))
+    (?d . defun)
+    (?b . buffer-file-name))
   "A list of (Key . THING)."
   :type '(repeat (cons character symbol))
+  :group 'killing)
+
+(defface easy-kill-face '((t (:inherit 'secondary-selection)))
+  "Faced used to highlight kill candidate."
   :group 'killing)
 
 (defun easy-kill-message-nolog (format-string &rest args)
@@ -47,17 +53,18 @@
 
 (defvar easy-kill-candidate nil)
 
-(defun easy-kill-remember (str)
-  (when str
-    (setq easy-kill-candidate str)
-    ;; Immediately put it in clipboard for other applications.
-    (and interprogram-cut-function
-         (funcall interprogram-cut-function str))
-    (easy-kill-message-nolog "%s" str)))
+(defun easy-kill-candidate ()
+  (when (overlayp easy-kill-candidate)
+    (if (eq (overlay-start easy-kill-candidate)
+            (overlay-end easy-kill-candidate))
+        (overlay-get easy-kill-candidate 'candidate)
+      (buffer-substring (overlay-start easy-kill-candidate)
+                        (overlay-end easy-kill-candidate)))))
 
 (defun easy-kill-map ()
   (let ((map (make-sparse-keymap)))
-    (define-key map "-" 'easy-kill-negative-argument)
+    (define-key map "-" 'easy-kill-backward)
+    (define-key map "+" 'easy-kill-forward)
     (mapc (lambda (d)
             (define-key map (number-to-string d) 'easy-kill-digit-argument))
           (number-sequence 0 9))
@@ -67,87 +74,56 @@
           (mapcar 'car easy-kill-alist))
     map))
 
-;;; `digit-argument' is incompatible with `set-temporary-overlay-map'
-;;; becauses the former overrides the latter's keymap.
-
-(defun easy-kill-digit-argument (arg)
-  (interactive "P")
-  (digit-argument arg)
-  ;; Counter the effect of (save&set-overriding-map universal-argument-map).
-  (restore-overriding-map))
-
-(defun easy-kill-negative-argument (arg)
-  (interactive "P")
-  (negative-argument arg)
-  (restore-overriding-map))
-
-(defun easy-kill-bounds (thing &optional n)
-  "Like `bounds-of-thing-at-point' but allow upto N things.
-Return nil if no THING at point."
-  (or n (setq n 1))
-  (let* ((bounds (bounds-of-thing-at-point thing))
-         (beg (car bounds))
-         (end (cdr bounds))
-         (count 0)
-         (step (if (minusp n) -1 1)))
-    (when bounds
+(defun easy-kill-forward (n)
+  (interactive "p")
+  (let ((direction (if (minusp n) -1 +1))
+        (thing (overlay-get easy-kill-candidate 'thing))
+        (start (overlay-start easy-kill-candidate))
+        (end (overlay-end easy-kill-candidate)))
+    (when thing
       (save-excursion
-        (if (minusp n)
-            (goto-char end)
-          (goto-char beg))
-        (while (ignore-errors (forward-thing thing step)
-                              (incf count)
-                              (if (< count (abs n)) t nil)))
-        ;; Don't update if point is located between BEG and END.
-        (unless (and (<= (point) end) (<= beg (point)))
-          (if (minusp n)
-              (setq beg (point))
-            (setq end (point)))))
-      (cons beg end))))
+        (goto-char end)
+        (with-demoted-errors
+          (dotimes (_ (abs n))
+            (forward-thing thing direction)
+            (when (<= (point) start)
+              (forward-thing thing 1)
+              (return))))
+        (when (/= end (point))
+          (move-overlay easy-kill-candidate start (point))
+          t)))))
 
-(defun easy-kill-select (&optional n)
+(defun easy-kill-backward (n)
+  (interactive "p")
+  (easy-kill-forward (- n)))
+
+(defun easy-kill-thing (thing &optional n)
+  ;; Return non-nil if succeed
+  (when (and thing
+             (let ((n (or n 1)))
+               (cond
+                ((intern-soft (format "easy-kill-on-%s" thing))
+                 (funcall (intern-soft (format "easy-kill-on-%s" thing)) n))
+                ((eq thing (overlay-get easy-kill-candidate 'thing))
+                 (easy-kill-forward n))
+                (t (let ((bounds (bounds-of-thing-at-point thing)))
+                     (when bounds
+                       (move-overlay easy-kill-candidate (car bounds) (cdr bounds))
+                       (overlay-put easy-kill-candidate 'thing thing)
+                       (easy-kill-forward (1- n))
+                       t))))))
+    ;; Immediately put it in clipboard for other applications.
+    (and interprogram-cut-function
+         (funcall interprogram-cut-function (or (easy-kill-candidate) "")))
+    t))
+
+(defun easy-kill-select (n)
   (interactive "p")
   (let ((thing (cdr (assoc (car (last (listify-key-sequence
                                        (single-key-description last-command-event))))
-                           easy-kill-alist)))
-        bounds)
-    (if (not (setq bounds (easy-kill-bounds thing n)))
-        (easy-kill-message-nolog "No `%s' at point." thing)
-      (easy-kill-remember (buffer-substring (car bounds) (cdr bounds))))))
-
-(defun easy-kill-url-at-point ()
-  "Get the url at point.
-It inspects char properties `help-echo', `shr-url' and
-`w3m-href-anchor'."
-  (if (bounds-of-thing-at-point 'url)
-      (thing-at-point 'url)
-    (loop for prop in '(help-echo shr-url w3m-href-anchor)
-          for data = (get-char-property-and-overlay (point) prop)
-          for text = (car data)
-          for overlay = (cdr data)
-          when (and (stringp text) (with-temp-buffer
-                                     (insert text)
-                                     (easy-kill-url-at-point)))
-          return it
-          when (and overlay (overlay-get overlay prop))
-          when (and (stringp it) (with-temp-buffer
-                                   (insert it)
-                                   (easy-kill-url-at-point)))
-          return it)))
-
-(defun easy-kill-guess (n)
-  (or (and (use-region-p)
-           (buffer-substring (region-beginning) (region-end)))
-      (easy-kill-url-at-point)
-      (save-restriction
-        ;; Note (bounds-of-thing-at-point 'email) takes time
-        ;; proportional to buffer size, so narrow buffer for
-        ;; efficiency.
-        (narrow-to-region (line-beginning-position (- (abs n)))
-                          (line-end-position (abs n)))
-        (loop for thing in '(email line)
-              when (easy-kill-bounds thing n)
-              return (buffer-substring (car it) (cdr it))))))
+                           easy-kill-alist))))
+    (or (easy-kill-thing thing n)
+        (easy-kill-message-nolog "No `%s' at point." thing))))
 
 (defun easy-kill-activate-keymap ()
   (let ((map (easy-kill-map)))
@@ -171,16 +147,38 @@ It inspects char properties `help-echo', `shr-url' and
                ;; `easy-kill-remember' already did the work.
                (let ((interprogram-cut-function nil)
                      (interprogram-paste-function nil))
-                 (kill-new easy-kill-candidate))
+                 (kill-ring-save (overlay-start easy-kill-candidate)
+                                 (overlay-end easy-kill-candidate)))
+               (delete-overlay easy-kill-candidate)
                (setq easy-kill-candidate nil)
                nil)))))))
 
 ;;;###autoload
-(defun easy-kill (&optional n)
-  (interactive "p")
-  (easy-kill-remember (easy-kill-guess n))
+(defun easy-kill ()
+  (interactive)
+  (setq easy-kill-candidate (let ((o (make-overlay (point) (point))))
+                              (overlay-put o 'face 'easy-kill-face)
+                              o))
   (setq deactivate-mark t)
+  (dolist (thing (if (use-region-p)
+                     '(region url email line)
+                   '(url email line)))
+    (when (easy-kill-thing thing)
+      (return)))
   (easy-kill-activate-keymap))
+
+;;; Extended things
+
+(put 'region 'bounds-of-thing-at-point
+     (lambda () (cons (region-beginning) (region-end))))
+
+(defun easy-kill-on-buffer-file-name (_n)
+  (when buffer-file-name
+    (move-overlay easy-kill-candidate (point) (point))
+    (overlay-put easy-kill-candidate 'candidate buffer-file-name)
+    (overlay-put easy-kill-candidate 'thing 'buffer-file-name)
+    (easy-kill-message-nolog "%s" buffer-file-name)
+    t))
 
 (provide 'easy-kill)
 ;;; easy-kill.el ends here
