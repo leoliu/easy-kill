@@ -61,6 +61,13 @@
       (buffer-substring (overlay-start easy-kill-candidate)
                         (overlay-end easy-kill-candidate)))))
 
+(defun easy-kill-select-text ()
+  "Make current kill candidate available to other programs."
+  (let ((candidate (easy-kill-candidate)))
+    (and candidate
+         interprogram-cut-function
+         (funcall interprogram-cut-function candidate))))
+
 (defun easy-kill-map ()
   (let ((map (make-sparse-keymap)))
     (define-key map "-" 'easy-kill-backward)
@@ -91,6 +98,7 @@
               (return))))
         (when (/= end (point))
           (move-overlay easy-kill-candidate start (point))
+          (easy-kill-select-text)
           t)))))
 
 (defun easy-kill-backward (n)
@@ -112,9 +120,7 @@
                        (overlay-put easy-kill-candidate 'thing thing)
                        (easy-kill-forward (1- n))
                        t))))))
-    ;; Immediately put it in clipboard for other applications.
-    (and interprogram-cut-function
-         (funcall interprogram-cut-function (or (easy-kill-candidate) "")))
+    (easy-kill-select-text)
     t))
 
 (defun easy-kill-select (n)
