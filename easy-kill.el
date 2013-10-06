@@ -125,7 +125,7 @@ Otherwise, it is the value of the overlay's candidate property."
             ?0)))
   (easy-kill-thing (overlay-get easy-kill-candidate 'thing) n))
 
-(defun easy-kill-thing (thing &optional n)
+(defun easy-kill-thing (thing &optional n inhibit-handler)
   (interactive
    (list (cdr (assoc (car (last (listify-key-sequence
                                  (single-key-description last-command-event))))
@@ -135,7 +135,8 @@ Otherwise, it is the value of the overlay's candidate property."
   (if (and thing
            (let ((n (or n 1)))
              (cond
-              ((intern-soft (format "easy-kill-on-%s" thing))
+              ((and (not inhibit-handler)
+                    (intern-soft (format "easy-kill-on-%s" thing)))
                (funcall (intern-soft (format "easy-kill-on-%s" thing)) n))
               ((eq thing (overlay-get easy-kill-candidate 'thing))
                (easy-kill-enlarge n))
@@ -202,6 +203,9 @@ Otherwise, it is the value of the overlay's candidate property."
      (lambda () (cons (region-beginning) (region-end))))
 
 (defun easy-kill-on-buffer-file-name (n)
+  "Get `buffer-file-name' or `default-directory'.
+If N is zero, remove the directory part; negative, remove the
+file name party; positive, full path."
   (let ((file (or buffer-file-name default-directory)))
     (when file
       (move-overlay easy-kill-candidate (point) (point))
@@ -216,6 +220,32 @@ Otherwise, it is the value of the overlay's candidate property."
       t)))
 
 (put 'buffer-file-name 'easy-kill-enlarge 'easy-kill-on-buffer-file-name)
+
+(defun easy-kill-on-url (&optional _n)
+  "Get url at point or from char properties.
+Char properties `help-echo', `shr-url' and `w3m-href-anchor' are
+inspected."
+  (if (bounds-of-thing-at-point 'url)
+      (easy-kill-thing 'url nil t)
+    (let* ((get-url (lambda (text)
+                      (when (stringp text)
+                        (with-temp-buffer
+                          (insert text)
+                          (and (bounds-of-thing-at-point 'url)
+                               (thing-at-point 'url))))))
+           (url (dolist (p '(help-echo shr-url w3m-href-anchor))
+                  (pcase-let* ((`(,text . ,ov)
+                                (get-char-property-and-overlay (point) p))
+                               (u (or (funcall get-url text)
+                                      (funcall get-url
+                                               (and ov (overlay-get ov p))))))
+                    (and u (return u))))))
+      (when url
+        (move-overlay easy-kill-candidate (point) (point))
+        (overlay-put easy-kill-candidate 'thing 'url)
+        (overlay-put easy-kill-candidate 'candidate url)
+        (easy-kill-message-nolog "%s" url)
+        t))))
 
 (provide 'easy-kill)
 ;;; easy-kill.el ends here
