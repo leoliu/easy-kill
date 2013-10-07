@@ -231,21 +231,21 @@ Char properties `help-echo', `shr-url' and `w3m-href-anchor' are
 inspected."
   (if (bounds-of-thing-at-point 'url)
       (easy-kill-thing 'url nil t)
-    (let* ((get-url (lambda (text)
-                      (when (stringp text)
-                        (with-temp-buffer
-                          (insert text)
-                          (and (bounds-of-thing-at-point 'url)
-                               (thing-at-point 'url))))))
-           (url (dolist (p '(help-echo shr-url w3m-href-anchor))
-                  (pcase-let* ((`(,text . ,ov)
-                                (get-char-property-and-overlay (point) p))
-                               (u (or (funcall get-url text)
-                                      (funcall get-url
-                                               (and ov (overlay-get ov p))))))
-                    (and u (return u))))))
-      (when url
-        (easy-kill-adjust-candidate 'url url)))))
+    (let ((get-url (lambda (text)
+                     (when (stringp text)
+                       (with-temp-buffer
+                         (insert text)
+                         (and (bounds-of-thing-at-point 'url)
+                              (thing-at-point 'url)))))))
+      (dolist (p '(help-echo shr-url w3m-href-anchor))
+        (pcase-let* ((`(,text . ,ov)
+                      (get-char-property-and-overlay (point) p))
+                     (url (or (funcall get-url text)
+                              (funcall get-url
+                                       (and ov (overlay-get ov p))))))
+          (when url
+            (easy-kill-adjust-candidate 'url url)
+            (return url)))))))
 
 (provide 'easy-kill)
 ;;; easy-kill.el ends here
