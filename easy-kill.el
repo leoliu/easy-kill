@@ -66,9 +66,11 @@
     (apply 'message format-string args)))
 
 (defun easy-kill-strip-trailing (s)
-  (if (string-match "[ \t\f\r\n]*\\'" s)
-      (substring s 0 (match-beginning 0))
-    (error "`string-match' failed in `easy-kill-strip'")))
+  (cond ((stringp s)
+         (if (string-match "[ \t\f\r\n]*\\'" s)
+             (substring s 0 (match-beginning 0))
+           (error "`string-match' failed in `easy-kill-strip'")))
+        (t s)))
 
 (defvar easy-kill-candidate nil)
 
@@ -84,8 +86,18 @@ Otherwise, it is the value of the overlay's candidate property."
                          (overlay-end easy-kill-candidate))
      (overlay-get easy-kill-candidate 'candidate))))
 
-(defun easy-kill-select-text ()
-  "Make current kill candidate available to other programs."
+(defun easy-kill-adjust-candidate (thing &optional beg end)
+  "Adjust kill candidate to THING, BEG, END.
+If BEG is a string, shring the overlay to zero length and set its
+candidate property instead."
+  (let ((o easy-kill-candidate))
+    (overlay-put o 'thing thing)
+    (if (stringp beg)
+        (progn
+          (move-overlay o (point) (point))
+          (overlay-put o 'candidate beg)
+          (easy-kill-message-nolog "%s" beg))
+      (move-overlay o (or beg (overlay-start o)) (or end (overlay-end 0)))))
   (and interprogram-cut-function
        (funcall interprogram-cut-function (easy-kill-candidate))))
 
@@ -108,8 +120,7 @@ Otherwise, it is the value of the overlay's candidate property."
                     (forward-thing thing 1)
                     (return))))
               (when (/= end (point))
-                (move-overlay easy-kill-candidate start (point))
-                (easy-kill-select-text)
+                (easy-kill-adjust-candidate thing nil (point))
                 t))))))))
 
 (defun easy-kill-shrink (n)
@@ -131,26 +142,19 @@ Otherwise, it is the value of the overlay's candidate property."
                                  (single-key-description last-command-event))))
                      easy-kill-alist))
          (prefix-numeric-value current-prefix-arg)))
-  ;; Return non-nil if succeed
-  (if (and thing
-           (let ((n (or n 1)))
-             (cond
-              ((and (not inhibit-handler)
-                    (intern-soft (format "easy-kill-on-%s" thing)))
-               (funcall (intern-soft (format "easy-kill-on-%s" thing)) n))
-              ((eq thing (overlay-get easy-kill-candidate 'thing))
-               (easy-kill-enlarge n))
-              (t (let ((bounds (bounds-of-thing-at-point thing)))
-                   (when bounds
-                     (move-overlay easy-kill-candidate (car bounds) (cdr bounds))
-                     (overlay-put easy-kill-candidate 'thing thing)
-                     (easy-kill-enlarge (1- n))
-                     t))))))
-      (progn
-        (easy-kill-select-text)
-        t)
-    (ignore (when (called-interactively-p 'interact)
-              (easy-kill-message-nolog "No `%s'" thing)))))
+  (let ((n (or n 1)))
+    (cond
+     ((and (not inhibit-handler)
+           (intern-soft (format "easy-kill-on-%s" thing)))
+      (funcall (intern-soft (format "easy-kill-on-%s" thing)) n))
+     ((eq thing (overlay-get easy-kill-candidate 'thing))
+      (easy-kill-enlarge n))
+     (t (let ((bounds (bounds-of-thing-at-point thing)))
+          (if (not bounds)
+              (when (called-interactively-p 'interact)
+                (easy-kill-message-nolog "No `%s'" thing))
+            (easy-kill-adjust-candidate thing (car bounds) (cdr bounds))
+            (easy-kill-enlarge (1- n))))))))
 
 (defun easy-kill-activate-keymap ()
   (let ((map (easy-kill-map)))
@@ -173,15 +177,18 @@ Otherwise, it is the value of the overlay's candidate property."
                ;; intercept pasting from other programs and
                ;; `easy-kill-remember' already did the work.
                (let ((interprogram-cut-function nil)
-                     (interprogram-paste-function nil))
-                 (kill-new (easy-kill-candidate)))
+                     (interprogram-paste-function nil)
+                     (candidate (easy-kill-candidate)))
+                 (unless(member candidate '(nil ""))
+                   (kill-new candidate)))
                (delete-overlay easy-kill-candidate)
                (setq easy-kill-candidate nil)
                nil)))))))
 
 ;;;###autoload
-(defun easy-kill ()
-  (interactive)
+(defun easy-kill (&optional n)
+  "Kill thing at point in the order of region, url, email and line."
+  (interactive "p")
   (setq easy-kill-candidate
         (let ((o (make-overlay (point) (point))))
           (overlay-put o 'face 'easy-kill-face)
@@ -193,7 +200,8 @@ Otherwise, it is the value of the overlay's candidate property."
   (dolist (thing (if (use-region-p)
                      '(region url email line)
                    '(url email line)))
-    (when (easy-kill-thing thing)
+    (easy-kill-thing thing n)
+    (when (overlay-get easy-kill-candidate 'thing)
       (return)))
   (easy-kill-activate-keymap))
 
@@ -208,16 +216,12 @@ If N is zero, remove the directory part; negative, remove the
 file name party; positive, full path."
   (let ((file (or buffer-file-name default-directory)))
     (when file
-      (move-overlay easy-kill-candidate (point) (point))
-      (overlay-put easy-kill-candidate 'thing 'buffer-file-name)
       (let* ((file (directory-file-name file))
              (text (cond
                     ((zerop n) (file-name-nondirectory file))
                     ((plusp n) file)
                     (t (file-name-directory file)))))
-        (overlay-put easy-kill-candidate 'candidate text)
-        (easy-kill-message-nolog "%s" text))
-      t)))
+        (easy-kill-adjust-candidate 'buffer-file-name text)))))
 
 (put 'buffer-file-name 'easy-kill-enlarge 'easy-kill-on-buffer-file-name)
 
@@ -241,11 +245,7 @@ inspected."
                                                (and ov (overlay-get ov p))))))
                     (and u (return u))))))
       (when url
-        (move-overlay easy-kill-candidate (point) (point))
-        (overlay-put easy-kill-candidate 'thing 'url)
-        (overlay-put easy-kill-candidate 'candidate url)
-        (easy-kill-message-nolog "%s" url)
-        t))))
+        (easy-kill-adjust-candidate 'url url)))))
 
 (provide 'easy-kill)
 ;;; easy-kill.el ends here
