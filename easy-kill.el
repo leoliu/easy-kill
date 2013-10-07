@@ -197,9 +197,7 @@ candidate property instead."
           (overlay-put o 'priority 999)
           o))
   (setq deactivate-mark t)
-  (dolist (thing (if (use-region-p)
-                     '(region url email line)
-                   '(url email line)))
+  (dolist (thing '(region url email line))
     (easy-kill-thing thing n)
     (when (overlay-get easy-kill-candidate 'thing)
       (return)))
@@ -208,7 +206,9 @@ candidate property instead."
 ;;; Extended things
 
 (put 'region 'bounds-of-thing-at-point
-     (lambda () (cons (region-beginning) (region-end))))
+     (lambda ()
+       (when (use-region-p)
+         (cons (region-beginning) (region-end)))))
 
 (defun easy-kill-on-buffer-file-name (n)
   "Get `buffer-file-name' or `default-directory'.
