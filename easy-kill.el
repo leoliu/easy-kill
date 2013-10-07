@@ -3,9 +3,10 @@
 ;; Copyright (C) 2013  Leo Liu
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
-;; Version: 0.6.0
+;; Version: 0.7.0
 ;; Keywords: convenience
 ;; Created: 2013-08-12
+;; URL: https://github.com/leoliu/easy-kill
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -38,11 +39,13 @@
     (?f . filename)
     (?d . defun)
     (?b . buffer-file-name))
-  "A list of (Key . THING)."
+  "A list of (CHAR . THING).
+CHAR is used immediately following `easy-kill' to select THING."
   :type '(repeat (cons character symbol))
   :group 'killing)
 
 (defun easy-kill-map ()
+  "Build the keymap according to `easy-kill-alist'."
   (let ((map (make-sparse-keymap)))
     (define-key map "-" 'easy-kill-shrink)
     (define-key map "+" 'easy-kill-enlarge)
@@ -74,7 +77,7 @@
         (t s)))
 
 (defvar easy-kill-exit nil
-  "If non-nil tells `set-temporary-overlay-map' to exit.")
+  "Tell `set-temporary-overlay-map' to exit if non-nil.")
 
 (defvar easy-kill-candidate nil)
 
@@ -92,7 +95,7 @@ Otherwise, it is the value of the overlay's candidate property."
 
 (defun easy-kill-adjust-candidate (thing &optional beg end)
   "Adjust kill candidate to THING, BEG, END.
-If BEG is a string, shring the overlay to zero length and set its
+If BEG is a string, shrink the overlay to zero length and set its
 candidate property instead."
   (let ((o easy-kill-candidate))
     (overlay-put o 'thing thing)
@@ -195,7 +198,15 @@ candidate property instead."
 
 ;;;###autoload
 (defun easy-kill (&optional n)
-  "Kill thing at point in the order of region, url, email and line."
+  "Kill thing at point in the order of region, url, email and line.
+Immediately following this additional key bindings are temporally
+activated:
+
+  letters => select things (according to `easy-kill-alist');
+  0..9    => enlarge current selection by that number;
+  +,=/-   => enlarge or shrink current selection by 1;
+  C-w     => kill current selection
+  others  => save current selection to kill ring and exit"
   (interactive "p")
   (setq easy-kill-candidate
         (let ((o (make-overlay (point) (point))))
@@ -209,6 +220,8 @@ candidate property instead."
     (easy-kill-thing thing n)
     (when (overlay-get easy-kill-candidate 'thing)
       (return)))
+  (when (zerop (buffer-size))
+    (easy-kill-message-nolog "Warn: `easy-kill' activated in empty buffer"))
   (easy-kill-activate-keymap))
 
 ;;; Extended things

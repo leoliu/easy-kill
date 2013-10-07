@@ -1,13 +1,14 @@
-====================
- Kill Things Easily
-====================
-
-Provide a more powerful command ``easy-kill`` for key ``M-w``.
-
-``M-w`` tries in order:
+=============================
+ Kill Things Easily in Emacs
+=============================
+ 
+``easy-kill`` let users kill things at point without moving point. Its
+goal is to be a drop-in replacement for ``kill-ring-save``. It tries
+in order:
 
 #. current region if active
-#. url at point
+#. url at point (snarf char properties ``help-echo``, ``shr-url``,
+   ``w3m-href-anchor`` etc.)
 #. email at point
 #. current line
 
@@ -18,8 +19,16 @@ Keys (customisable) immediately following ``M-w``:
 #. ``f`` -> file at point
 #. ``l`` -> list at point
 #. ``d`` -> defun at point
+#. ``b`` -> ``buffer-file-name`` or ``default-directory``
+#. ``C-w`` -> kill current region
+#. ``+``, ``-`` and ``0..9`` -> enlarge/shrink selection
 
-More features are planned.
+The following `screenshot <http://i.imgur.com/8TNgPly.png>`_ shows
+``M-w l`` in action:
+
+.. figure:: http://i.imgur.com/8TNgPly.png
+   :target: http://i.imgur.com/8TNgPly.png
+   :alt: ``M-w l``
 
 To Use
 ~~~~~~
@@ -28,3 +37,16 @@ To Use
 
    (require 'easy-kill)
    (global-set-key "\M-w" 'easy-kill)
+
+Extensions
+~~~~~~~~~~
+
+New things can be defined by following package ``thingatpt.el``'s
+convention, or by defining new functions named like
+``easy-kill-on-THING-NAME``. See ``easy-kill-on-buffer-file-name`` and
+``easy-kill-on-url`` for examples.
+
+Bugs
+~~~~
+
+https://github.com/leoliu/easy-kill/issues
