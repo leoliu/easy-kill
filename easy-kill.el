@@ -73,7 +73,7 @@ CHAR is used immediately following `easy-kill' to select THING."
   (cond ((stringp s)
          (if (string-match "[ \t\f\r\n]*\\'" s)
              (substring s 0 (match-beginning 0))
-           (error "`string-match' failed in `easy-kill-strip'")))
+           (error "`string-match' failed in `easy-kill-strip-trailing'")))
         (t s)))
 
 (defvar easy-kill-exit nil
@@ -148,10 +148,10 @@ candidate property instead."
   (interactive)
   (let ((beg (overlay-start easy-kill-candidate))
         (end (overlay-end easy-kill-candidate)))
-    (if (/= beg end)
-        (kill-region beg end)
-      (easy-kill-message-nolog "Region empty")))
-  (setq easy-kill-exit t))
+    (if (= beg end)
+        (easy-kill-message-nolog "Empty region")
+      (setq easy-kill-exit t)
+      (kill-region beg end))))
 
 (defun easy-kill-thing (thing &optional n inhibit-handler)
   (interactive
@@ -186,7 +186,7 @@ candidate property instead."
              (when easy-kill-candidate
                ;; Do not modify the clipboard here because it will
                ;; intercept pasting from other programs and
-               ;; `easy-kill-remember' already did the work.
+               ;; `easy-kill-adjust-candidate' already did the work.
                (let ((interprogram-cut-function nil)
                      (interprogram-paste-function nil)
                      (candidate (easy-kill-candidate)))
@@ -199,14 +199,13 @@ candidate property instead."
 ;;;###autoload
 (defun easy-kill (&optional n)
   "Kill thing at point in the order of region, url, email and line.
-Immediately following this additional key bindings are temporally
-activated:
+Temporally activate additional key bindings as follows:
 
-  letters => select things (according to `easy-kill-alist');
+  letters => select or enlarge things according to `easy-kill-alist';
   0..9    => enlarge current selection by that number;
   +,=/-   => enlarge or shrink current selection by 1;
-  C-w     => kill current selection
-  others  => save current selection to kill ring and exit"
+  C-w     => kill current selection;
+  others  => save current selection to kill ring and exit."
   (interactive "p")
   (setq easy-kill-candidate
         (let ((o (make-overlay (point) (point))))
