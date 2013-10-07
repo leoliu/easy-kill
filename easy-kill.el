@@ -47,6 +47,7 @@
     (define-key map "-" 'easy-kill-shrink)
     (define-key map "+" 'easy-kill-enlarge)
     (define-key map "=" 'easy-kill-enlarge)
+    (define-key map "\C-w" 'easy-kill-region)
     (mapc (lambda (d)
             (define-key map (number-to-string d) 'easy-kill-digit-argument))
           (number-sequence 0 9))
@@ -71,6 +72,9 @@
              (substring s 0 (match-beginning 0))
            (error "`string-match' failed in `easy-kill-strip'")))
         (t s)))
+
+(defvar easy-kill-exit nil
+  "If non-nil tells `set-temporary-overlay-map' to exit.")
 
 (defvar easy-kill-candidate nil)
 
@@ -136,6 +140,16 @@ candidate property instead."
             ?0)))
   (easy-kill-thing (overlay-get easy-kill-candidate 'thing) n))
 
+(defun easy-kill-region ()
+  "Kill current selection and exit."
+  (interactive)
+  (let ((beg (overlay-start easy-kill-candidate))
+        (end (overlay-end easy-kill-candidate)))
+    (if (/= beg end)
+        (kill-region beg end)
+      (easy-kill-message-nolog "Region empty")))
+  (setq easy-kill-exit t))
+
 (defun easy-kill-thing (thing &optional n inhibit-handler)
   (interactive
    (list (cdr (assoc (car (last (listify-key-sequence
@@ -163,15 +177,9 @@ candidate property instead."
      (lambda ()
        ;; When any error happens the keymap is active forever.
        (with-demoted-errors
-         (or (let ((cmd (lookup-key map (this-command-keys))))
-               (eq this-command
-                   (if (and (numberp cmd)
-                            universal-argument-num-events
-                            (> (length (this-command-keys))
-                               universal-argument-num-events))
-                       (lookup-key map (substring (this-command-keys)
-                                                  universal-argument-num-events))
-                     cmd)))
+         (or (and (not (prog1 easy-kill-exit
+                         (setq easy-kill-exit nil)))
+                  (eq this-command (lookup-key map (this-command-keys))))
              (when easy-kill-candidate
                ;; Do not modify the clipboard here because it will
                ;; intercept pasting from other programs and
