@@ -51,6 +51,8 @@ CHAR is used immediately following `easy-kill' to select THING."
     (define-key map "+" 'easy-kill-expand)
     (define-key map "=" 'easy-kill-expand)
     (define-key map "\C-w" 'easy-kill-region)
+    (define-key map (kbd "C-SPC") 'easy-kill-mark-region)
+    (define-key map (kbd "C-@") 'easy-kill-mark-region)
     (mapc (lambda (d)
             (define-key map (number-to-string d) 'easy-kill-digit-argument))
           (number-sequence 0 9))
@@ -180,7 +182,20 @@ candidate property instead."
     (if (= beg end)
         (easy-kill-message-nolog "Empty region")
       (setq easy-kill-exit t)
+      (easy-kill-adjust-candidate nil "")
       (kill-region beg end))))
+
+(defun easy-kill-mark-region ()
+  (interactive)
+  (let ((beg (overlay-start easy-kill-candidate))
+        (end (overlay-end easy-kill-candidate)))
+    (if (= beg end)
+        (easy-kill-message-nolog "Empty region")
+      (setq easy-kill-exit t)
+      (easy-kill-adjust-candidate nil "")
+      (set-mark beg)
+      (goto-char end)
+      (activate-mark))))
 
 (defun easy-kill-activate-keymap ()
   (let ((map (easy-kill-map)))
@@ -191,7 +206,7 @@ candidate property instead."
        (with-demoted-errors
          (or (and (not (prog1 easy-kill-exit
                          (setq easy-kill-exit nil)))
-                  (eq this-command (lookup-key map (this-command-keys))))
+                  (eq this-command (lookup-key map (this-command-keys-vector))))
              (when easy-kill-candidate
                ;; Do not modify the clipboard here because it will
                ;; intercept pasting from other programs and
@@ -213,6 +228,7 @@ Temporally activate additional key bindings as follows:
   0..9    => expand current selection by that number;
   +,=/-   => expand or shrink current selection by 1;
   C-w     => kill current selection;
+  C-SPC   => turn current selection into active region
   others  => save current selection to kill ring and exit."
   (interactive "p")
   (setq easy-kill-candidate
@@ -240,8 +256,8 @@ Temporally activate additional key bindings as follows:
 
 (defun easy-kill-on-buffer-file-name (n)
   "Get `buffer-file-name' or `default-directory'.
-If N is zero, remove the directory part; negative, remove the
-file name party; positive, full path."
+If N is zero, remove the directory part; -, remove the file name
+party; +, full path."
   (let ((file (or buffer-file-name default-directory)))
     (when file
       (let* ((file (directory-file-name file))
