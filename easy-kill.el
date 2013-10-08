@@ -273,5 +273,35 @@ inspected."
             (easy-kill-adjust-candidate 'url url)
             (return url)))))))
 
+(defun easy-kill-bounds-of-list (n)
+  (save-excursion
+    (pcase n
+      (`+ (goto-char (overlay-start easy-kill-candidate))
+          (with-demoted-errors (up-list -1))
+          (with-demoted-errors
+            (cons (point) (progn (forward-sexp) (point)))))
+      (`- (let ((bound (or (cdr (bounds-of-thing-at-point 'sexp)) (point))))
+            (goto-char (overlay-start easy-kill-candidate))
+            (with-demoted-errors
+              (down-list 1)
+              (while (< (point) bound) (forward-sexp 1)))
+            (when (>= (point) bound)
+              (let ((end (point)))
+                (with-demoted-errors
+                  (cons (progn (forward-sexp -1) (point)) end))))))
+      (_ (error "Unsupported argument `%s'" n)))))
+
+(defun easy-kill-on-list (n)
+  (if (memq n '(+ -))
+      (let ((bounds (easy-kill-bounds-of-list n)))
+        (easy-kill-adjust-candidate 'list (car bounds) (cdr bounds)))
+    (easy-kill-thing 'list n nil t)))
+
+(defun easy-kill-on-sexp (n)
+  (if (memq n '(+ -))
+      (let ((bounds (easy-kill-bounds-of-list n)))
+        (easy-kill-adjust-candidate 'sexp (car bounds) (cdr bounds)))
+    (easy-kill-thing 'sexp n nil t)))
+
 (provide 'easy-kill)
 ;;; easy-kill.el ends here
