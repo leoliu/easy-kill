@@ -74,7 +74,7 @@ CHAR is used immediately following `easy-kill' to select THING."
          (if (string-match "[ \t\f\r\n]*\\'" s)
              (substring s 0 (match-beginning 0))
            (error "`string-match' failed in `easy-kill-strip-trailing'")))
-        (t s)))
+        (t "")))
 
 (defvar easy-kill-exit nil
   "Tell `set-temporary-overlay-map' to exit if non-nil.")
@@ -106,6 +106,7 @@ candidate property instead."
           (easy-kill-message-nolog "%s" beg))
       (move-overlay o (or beg (overlay-start o)) (or end (overlay-end 0)))))
   (and interprogram-cut-function
+       (not (string= (easy-kill-candidate) ""))
        (funcall interprogram-cut-function (easy-kill-candidate))))
 
 (defun easy-kill-enlarge (n)
@@ -145,7 +146,7 @@ candidate property instead."
 
 (defun easy-kill-region ()
   "Kill current selection and exit."
-  (interactive)
+  (interactive "*")
   (let ((beg (overlay-start easy-kill-candidate))
         (end (overlay-end easy-kill-candidate)))
     (if (= beg end)
@@ -188,10 +189,9 @@ candidate property instead."
                ;; intercept pasting from other programs and
                ;; `easy-kill-adjust-candidate' already did the work.
                (let ((interprogram-cut-function nil)
-                     (interprogram-paste-function nil)
-                     (candidate (easy-kill-candidate)))
-                 (unless(member candidate '(nil ""))
-                   (kill-new candidate)))
+                     (interprogram-paste-function nil))
+                 (unless (string= (easy-kill-candidate) "")
+                   (kill-new (easy-kill-candidate))))
                (delete-overlay easy-kill-candidate)
                (setq easy-kill-candidate nil)
                nil)))))))
@@ -217,8 +217,8 @@ Temporally activate additional key bindings as follows:
   (setq deactivate-mark t)
   (dolist (thing '(region url email line))
     (easy-kill-thing thing n)
-    (when (overlay-get easy-kill-candidate 'thing)
-      (return)))
+    (or (string= (easy-kill-candidate) "")
+        (return)))
   (when (zerop (buffer-size))
     (easy-kill-message-nolog "Warn: `easy-kill' activated in empty buffer"))
   (easy-kill-activate-keymap))
