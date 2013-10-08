@@ -209,9 +209,9 @@ candidate property instead."
   "Kill thing at point in the order of region, url, email and line.
 Temporally activate additional key bindings as follows:
 
-  letters => select or enlarge things according to `easy-kill-alist';
-  0..9    => enlarge current selection by that number;
-  +,=/-   => enlarge or shrink current selection by 1;
+  letters => select or expand things according to `easy-kill-alist';
+  0..9    => expand current selection by that number;
+  +,=/-   => expand or shrink current selection by 1;
   C-w     => kill current selection;
   others  => save current selection to kill ring and exit."
   (interactive "p")

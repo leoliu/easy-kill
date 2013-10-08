@@ -21,7 +21,7 @@ Keys (customisable) immediately following ``M-w``:
 #. ``d`` -> defun at point
 #. ``b`` -> ``buffer-file-name`` or ``default-directory``
 #. ``C-w`` -> kill current region
-#. ``+``, ``-`` and ``0..9`` -> enlarge/shrink selection
+#. ``+``, ``-`` and ``0..9`` -> expand/shrink selection
 
 The following `screenshot <http://i.imgur.com/8TNgPly.png>`_ shows
 ``M-w l`` in action:
