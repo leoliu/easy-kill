@@ -79,7 +79,9 @@ CHAR is used immediately following `easy-kill' to select THING."
         (t "")))
 
 (defvar easy-kill-exit nil
-  "Tell `set-temporary-overlay-map' to exit if non-nil.")
+  "Tell `set-temporary-overlay-map' to exit if non-nil.
+Note: exit only happens right before next command per
+`set-temporary-overlay-map'.")
 
 (defvar easy-kill-candidate nil)
 
@@ -177,25 +179,29 @@ candidate property instead."
 (defun easy-kill-region ()
   "Kill current selection and exit."
   (interactive "*")
-  (let ((beg (overlay-start easy-kill-candidate))
-        (end (overlay-end easy-kill-candidate)))
-    (if (= beg end)
-        (easy-kill-message-nolog "Empty region")
-      (setq easy-kill-exit t)
-      (easy-kill-adjust-candidate nil "")
-      (kill-region beg end))))
+  (if (not easy-kill-candidate)         ; `easy-kill' has exited
+      (push last-input-event unread-command-events)
+    (let ((beg (overlay-start easy-kill-candidate))
+          (end (overlay-end easy-kill-candidate)))
+      (if (= beg end)
+          (easy-kill-message-nolog "Empty region")
+        (setq easy-kill-exit t)
+        (easy-kill-adjust-candidate nil "")
+        (kill-region beg end)))))
 
 (defun easy-kill-mark-region ()
   (interactive)
-  (let ((beg (overlay-start easy-kill-candidate))
-        (end (overlay-end easy-kill-candidate)))
-    (if (= beg end)
-        (easy-kill-message-nolog "Empty region")
-      (setq easy-kill-exit t)
-      (easy-kill-adjust-candidate nil "")
-      (set-mark beg)
-      (goto-char end)
-      (activate-mark))))
+  (if (not easy-kill-candidate)
+      (push last-input-event unread-command-events)
+    (let ((beg (overlay-start easy-kill-candidate))
+          (end (overlay-end easy-kill-candidate)))
+      (if (= beg end)
+          (easy-kill-message-nolog "Empty region")
+        (setq easy-kill-exit t)
+        (easy-kill-adjust-candidate nil "")
+        (set-mark beg)
+        (goto-char end)
+        (activate-mark)))))
 
 (defun easy-kill-activate-keymap ()
   (let ((map (easy-kill-map)))
