@@ -48,8 +48,8 @@ CHAR is used immediately following `easy-kill' to select THING."
   "Build the keymap according to `easy-kill-alist'."
   (let ((map (make-sparse-keymap)))
     (define-key map "-" 'easy-kill-shrink)
-    (define-key map "+" 'easy-kill-enlarge)
-    (define-key map "=" 'easy-kill-enlarge)
+    (define-key map "+" 'easy-kill-expand)
+    (define-key map "=" 'easy-kill-expand)
     (define-key map "\C-w" 'easy-kill-region)
     (mapc (lambda (d)
             (define-key map (number-to-string d) 'easy-kill-digit-argument))
@@ -105,45 +105,72 @@ candidate property instead."
           (move-overlay o (point) (point))
           (overlay-put o 'candidate beg)
           (easy-kill-message-nolog "%s" beg))
-      (move-overlay o (or beg (overlay-start o)) (or end (overlay-end 0)))))
+      (move-overlay o (or beg (overlay-start o)) (or end (overlay-end o)))))
   (and interprogram-cut-function
        (not (string= (easy-kill-candidate) ""))
        (funcall interprogram-cut-function (easy-kill-candidate))))
 
-(defun easy-kill-enlarge (n)
-  (interactive "p")
-  (let ((thing (overlay-get easy-kill-candidate 'thing)))
-    (when thing
-      (if (get thing 'easy-kill-enlarge)
-          (funcall (get thing 'easy-kill-enlarge) n)
-        (let ((direction (if (minusp n) -1 +1))
-              (start (overlay-start easy-kill-candidate))
-              (end (overlay-end easy-kill-candidate)))
-          (when thing
-            (save-excursion
-              (goto-char end)
-              (with-demoted-errors
-                (dotimes (_ (abs n))
-                  (forward-thing thing direction)
-                  (when (<= (point) start)
-                    (forward-thing thing 1)
-                    (return))))
-              (when (/= end (point))
-                (easy-kill-adjust-candidate thing nil (point))
-                t))))))))
+(defun easy-kill-expand ()
+  (interactive)
+  (easy-kill-thing nil '+))
 
-(defun easy-kill-shrink (n)
-  (interactive "p")
-  (easy-kill-enlarge (- n)))
-
-(defun easy-kill-digit-argument (&optional n)
+(defun easy-kill-digit-argument (n)
   (interactive
    (list (- (logand (if (integerp last-command-event)
                         last-command-event
                       (get last-command-event 'ascii-character))
                     ?\177)
             ?0)))
-  (easy-kill-thing (overlay-get easy-kill-candidate 'thing) n))
+  (easy-kill-thing nil n))
+
+(defun easy-kill-shrink ()
+  (interactive)
+  (easy-kill-thing nil '-))
+
+;; helper for `easy-kill-thing'.
+(defun easy-kill-thing-forward (n)
+  (let ((thing (overlay-get easy-kill-candidate 'thing))
+        (direction (if (minusp n) -1 +1))
+        (start (overlay-start easy-kill-candidate))
+        (end (overlay-end easy-kill-candidate)))
+    (when thing
+      (save-excursion
+        (goto-char end)
+        (with-demoted-errors
+          (dotimes (_ (abs n))
+            (forward-thing thing direction)
+            (when (<= (point) start)
+              (forward-thing thing 1)
+              (return))))
+        (when (/= end (point))
+          (easy-kill-adjust-candidate thing nil (point))
+          t)))))
+
+(defun easy-kill-thing (&optional thing n nomsg inhibit-handler)
+  ;; N can be -, + and digits
+  (interactive
+   (list (cdr (assoc (car (last (listify-key-sequence
+                                 (single-key-description last-command-event))))
+                     easy-kill-alist))
+         (prefix-numeric-value current-prefix-arg)))
+  (let ((thing (or thing (overlay-get easy-kill-candidate 'thing)))
+        (n (or n 1)))
+    (cond
+     ((and (not inhibit-handler)
+           (intern-soft (format "easy-kill-on-%s" thing)))
+      (funcall (intern-soft (format "easy-kill-on-%s" thing)) n))
+     ((or (eq thing (overlay-get easy-kill-candidate 'thing))
+          (memq n '(+ -)))
+      (easy-kill-thing-forward (pcase n
+                                 (`+ 1)
+                                 (`- -1)
+                                 (n n))))
+     (t (let ((bounds (bounds-of-thing-at-point thing)))
+          (if (not bounds)
+              (unless nomsg
+                (easy-kill-message-nolog "No `%s'" thing))
+            (easy-kill-adjust-candidate thing (car bounds) (cdr bounds))
+            (easy-kill-thing-forward (1- n))))))))
 
 (defun easy-kill-region ()
   "Kill current selection and exit."
@@ -154,26 +181,6 @@ candidate property instead."
         (easy-kill-message-nolog "Empty region")
       (setq easy-kill-exit t)
       (kill-region beg end))))
-
-(defun easy-kill-thing (thing &optional n inhibit-handler)
-  (interactive
-   (list (cdr (assoc (car (last (listify-key-sequence
-                                 (single-key-description last-command-event))))
-                     easy-kill-alist))
-         (prefix-numeric-value current-prefix-arg)))
-  (let ((n (or n 1)))
-    (cond
-     ((and (not inhibit-handler)
-           (intern-soft (format "easy-kill-on-%s" thing)))
-      (funcall (intern-soft (format "easy-kill-on-%s" thing)) n))
-     ((eq thing (overlay-get easy-kill-candidate 'thing))
-      (easy-kill-enlarge n))
-     (t (let ((bounds (bounds-of-thing-at-point thing)))
-          (if (not bounds)
-              (when (called-interactively-p 'interact)
-                (easy-kill-message-nolog "No `%s'" thing))
-            (easy-kill-adjust-candidate thing (car bounds) (cdr bounds))
-            (easy-kill-enlarge (1- n))))))))
 
 (defun easy-kill-activate-keymap ()
   (let ((map (easy-kill-map)))
@@ -217,7 +224,7 @@ Temporally activate additional key bindings as follows:
           o))
   (setq deactivate-mark t)
   (dolist (thing '(region url email line))
-    (easy-kill-thing thing n)
+    (easy-kill-thing thing n 'nomsg)
     (or (string= (easy-kill-candidate) "")
         (return)))
   (when (zerop (buffer-size))
@@ -238,20 +245,18 @@ file name party; positive, full path."
   (let ((file (or buffer-file-name default-directory)))
     (when file
       (let* ((file (directory-file-name file))
-             (text (cond
-                    ((zerop n) (file-name-nondirectory file))
-                    ((plusp n) file)
-                    (t (file-name-directory file)))))
+             (text (pcase n
+                     (`- (file-name-directory file))
+                     ((pred (eq 0)) (file-name-nondirectory file))
+                     (_ file))))
         (easy-kill-adjust-candidate 'buffer-file-name text)))))
-
-(put 'buffer-file-name 'easy-kill-enlarge 'easy-kill-on-buffer-file-name)
 
 (defun easy-kill-on-url (&optional _n)
   "Get url at point or from char properties.
 Char properties `help-echo', `shr-url' and `w3m-href-anchor' are
 inspected."
   (if (bounds-of-thing-at-point 'url)
-      (easy-kill-thing 'url nil t)
+      (easy-kill-thing 'url nil nil t)
     (let ((get-url (lambda (text)
                      (when (stringp text)
                        (with-temp-buffer
