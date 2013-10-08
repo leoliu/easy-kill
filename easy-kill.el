@@ -299,18 +299,16 @@ inspected."
   (save-excursion
     (pcase n
       (`+ (goto-char (overlay-start easy-kill-candidate))
-          (with-demoted-errors (up-list -1))
-          (with-demoted-errors
+          (ignore-errors
+            (up-list -1)
             (cons (point) (progn (forward-sexp) (point)))))
-      (`- (let ((bound (or (cdr (bounds-of-thing-at-point 'sexp)) (point))))
-            (goto-char (overlay-start easy-kill-candidate))
-            (with-demoted-errors
-              (down-list 1)
-              (while (< (point) bound) (forward-sexp 1)))
-            (when (>= (point) bound)
-              (let ((end (point)))
-                (with-demoted-errors
-                  (cons (progn (forward-sexp -1) (point)) end))))))
+      (`- (let ((depth (car (parse-partial-sexp
+                             (overlay-start easy-kill-candidate) (point)))))
+            (if (> depth 1)
+                (ignore-errors
+                  (goto-char (scan-lists (point) -1 (1- depth)))
+                  (cons (point) (progn (forward-sexp 1) (point))))
+              (bounds-of-thing-at-point 'sexp))))
       (_ (error "Unsupported argument `%s'" n)))))
 
 (defun easy-kill-on-list (n)
