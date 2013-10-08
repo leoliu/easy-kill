@@ -87,11 +87,12 @@ If the overlay specified by variable `easy-kill-candidate' has
 non-zero length, it is the string covered by the overlay.
 Otherwise, it is the value of the overlay's candidate property."
   (easy-kill-strip-trailing
-   (if (/= (overlay-start easy-kill-candidate)
-           (overlay-end easy-kill-candidate))
-       (buffer-substring (overlay-start easy-kill-candidate)
-                         (overlay-end easy-kill-candidate))
-     (overlay-get easy-kill-candidate 'candidate))))
+   (with-current-buffer (overlay-buffer easy-kill-candidate)
+     (if (/= (overlay-start easy-kill-candidate)
+             (overlay-end easy-kill-candidate))
+         (buffer-substring (overlay-start easy-kill-candidate)
+                           (overlay-end easy-kill-candidate))
+       (overlay-get easy-kill-candidate 'candidate)))))
 
 (defun easy-kill-adjust-candidate (thing &optional beg end)
   "Adjust kill candidate to THING, BEG, END.
