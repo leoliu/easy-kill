@@ -38,7 +38,7 @@ To Use
 ::
 
    (require 'easy-kill)
-   (global-set-key "\M-w" 'easy-kill)
+   (global-set-key [remap kill-ring-save] 'easy-kill)
 
 Extensions
 ~~~~~~~~~~
