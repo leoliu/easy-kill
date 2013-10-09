@@ -4,6 +4,7 @@
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
 ;; Version: 0.7.0
+;; Package-Requires: ((emacs "24"))
 ;; Keywords: convenience
 ;; Created: 2013-08-12
 ;; URL: https://github.com/leoliu/easy-kill
