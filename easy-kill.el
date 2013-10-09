@@ -51,6 +51,7 @@ CHAR is used immediately following `easy-kill' to select THING."
     (define-key map "+" 'easy-kill-expand)
     (define-key map "=" 'easy-kill-expand)
     (define-key map "\C-w" 'easy-kill-region)
+    (define-key map "\M-w" 'easy-kill-copy-region)
     (define-key map (kbd "C-SPC") 'easy-kill-mark-region)
     (define-key map (kbd "C-@") 'easy-kill-mark-region)
     (mapc (lambda (d)
@@ -176,9 +177,9 @@ candidate property instead."
             (easy-kill-adjust-candidate thing (car bounds) (cdr bounds))
             (easy-kill-thing-forward (1- n))))))))
 
-(defun easy-kill-region ()
-  "Kill current selection and exit."
-  (interactive "*")
+(defun easy-kill-region (&optional arg)
+  "Kill current selection and exit.  With prefix arg, copy instead of kill."
+  (interactive "*P")
   (if (not easy-kill-candidate)         ; `easy-kill' has exited
       (push last-input-event unread-command-events)
     (let ((beg (overlay-start easy-kill-candidate))
@@ -187,7 +188,14 @@ candidate property instead."
           (easy-kill-message-nolog "Empty region")
         (setq easy-kill-exit t)
         (easy-kill-adjust-candidate nil "")
-        (kill-region beg end)))))
+        (if arg
+            (copy-region-as-kill beg end)
+          (kill-region beg end))))))
+
+(defun easy-kill-copy-region ()
+  "Copy current selection and exit."
+  (interactive)
+  (easy-kill-region t))
 
 (defun easy-kill-mark-region ()
   (interactive)
