@@ -305,26 +305,25 @@ inspected."
   (condition-case nil
       (progn
         (easy-kill-backward-up)
-        (if (or (not bound)
-                (and (> (point) bound) (/= point (point))))
+        (if (and (or (not bound) (> (point) bound))
+                 (/= point (point)))
             (easy-kill-backward-down (point) bound)
           point))
     (scan-error point)))
 
 (defun easy-kill-bounds-of-list (n)
   (save-excursion
-    (pcase n
-      (`+ (let ((start (overlay-start easy-kill-candidate)))
-            (goto-char start)
-            (easy-kill-backward-up)
-            (when (/= start (point))
-              (cons (point) (progn (forward-sexp) (point))))))
-      (`- (let ((pt (point)))
-            (goto-char (easy-kill-backward-down
-                        (point) (overlay-start easy-kill-candidate)))
-            (when (/= pt (point))
-              (cons (point) (progn (forward-sexp 1) (point))))))
-      (_ (error "Unsupported argument `%s'" n)))))
+    (when (pcase n
+            (`+ (let ((start (overlay-start easy-kill-candidate)))
+                  (goto-char start)
+                  (easy-kill-backward-up)
+                  (/= start (point))))
+            (`- (let ((pt (point)))
+                  (goto-char (easy-kill-backward-down
+                              (point) (overlay-start easy-kill-candidate)))
+                  (/= pt (point))))
+            (_ (error "Unsupported argument `%s'" n)))
+      (cons (point) (progn (forward-sexp 1) (point))))))
 
 (defun easy-kill-on-list (n)
   (if (memq n '(+ -))
