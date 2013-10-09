@@ -237,28 +237,25 @@ Temporally activate additional key bindings as follows:
   C-SPC   => turn current selection into active region
   others  => save current selection to kill ring and exit."
   (interactive "p")
-  (setq easy-kill-candidate
-        (let ((o (make-overlay (point) (point))))
-          (overlay-put o 'face 'easy-kill-face)
-          ;; Use higher priority to avoid shadowing by, for example,
-          ;; `hl-line-mode'.
-          (overlay-put o 'priority 999)
-          o))
-  (setq deactivate-mark t)
-  (dolist (thing '(region url email line))
-    (easy-kill-thing thing n 'nomsg)
-    (or (string= (easy-kill-candidate) "")
-        (return)))
-  (when (zerop (buffer-size))
-    (easy-kill-message-nolog "Warn: `easy-kill' activated in empty buffer"))
-  (easy-kill-activate-keymap))
+  (if (use-region-p)
+      (kill-ring-save (region-beginning) (region-end))
+    (setq easy-kill-candidate
+          (let ((o (make-overlay (point) (point))))
+            (overlay-put o 'face 'easy-kill-face)
+            ;; Use higher priority to avoid shadowing by, for example,
+            ;; `hl-line-mode'.
+            (overlay-put o 'priority 999)
+            o))
+    (setq deactivate-mark t)
+    (dolist (thing '(url email line))
+      (easy-kill-thing thing n 'nomsg)
+      (or (string= (easy-kill-candidate) "")
+          (return)))
+    (when (zerop (buffer-size))
+      (easy-kill-message-nolog "Warn: `easy-kill' activated in empty buffer"))
+    (easy-kill-activate-keymap)))
 
 ;;; Extended things
-
-(put 'region 'bounds-of-thing-at-point
-     (lambda ()
-       (when (use-region-p)
-         (cons (region-beginning) (region-end)))))
 
 (defun easy-kill-on-buffer-file-name (n)
   "Get `buffer-file-name' or `default-directory'.
@@ -328,7 +325,8 @@ inspected."
 (defun easy-kill-on-list (n)
   (if (memq n '(+ -))
       (let ((bounds (easy-kill-bounds-of-list n)))
-        (easy-kill-adjust-candidate 'list (car bounds) (cdr bounds)))
+        (when bounds
+          (easy-kill-adjust-candidate 'list (car bounds) (cdr bounds))))
     (easy-kill-thing 'list n nil t)))
 
 (defun easy-kill-on-sexp (n)
