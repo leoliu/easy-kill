@@ -21,6 +21,7 @@ Keys (customisable) immediately following ``M-w``:
 #. ``d`` -> defun at point
 #. ``b`` -> ``buffer-file-name`` or ``default-directory``
 #. ``C-w`` -> kill current region
+#. ``@`` -> append selection to previous kill
 #. ``+``, ``-`` and ``0..9`` -> expand/shrink selection
 #. ``C-@`` or ``C-SPC`` -> turn current selection into an active
    region

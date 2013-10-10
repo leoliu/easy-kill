@@ -51,7 +51,7 @@ CHAR is used immediately following `easy-kill' to select THING."
     (define-key map "-" 'easy-kill-shrink)
     (define-key map "+" 'easy-kill-expand)
     (define-key map "=" 'easy-kill-expand)
-    (define-key map "!" 'easy-kill-append)
+    (define-key map "@" 'easy-kill-append)
     (define-key map "\C-w" 'easy-kill-region)
     (define-key map (kbd "C-SPC") 'easy-kill-mark-region)
     (define-key map (kbd "C-@") 'easy-kill-mark-region)
@@ -80,12 +80,9 @@ CHAR is used immediately following `easy-kill' to select THING."
            (error "`string-match' failed in `easy-kill-strip-trailing'")))
         (t "")))
 
-(defvar easy-kill-exit nil
-  "Tell `set-temporary-overlay-map' to exit if non-nil.
-Note: exit only happens right before next command per
-`set-temporary-overlay-map'.")
-
 (defvar easy-kill-candidate nil)
+
+(defvar easy-kill-append nil)
 
 (defun easy-kill-candidate ()
   "Get the kill candidate as a string.
@@ -115,6 +112,29 @@ candidate property instead."
   (and interprogram-cut-function
        (not (string= (easy-kill-candidate) ""))
        (funcall interprogram-cut-function (easy-kill-candidate))))
+
+(defun easy-kill-save-candidate ()
+  ;; Do not modify the clipboard here because it may be called in
+  ;; `pre-command-hook' and will confuse `yank' if it is the next
+  ;; command. Also `easy-kill-adjust-candidate' already did the work.
+  (let ((interprogram-cut-function nil)
+        (interprogram-paste-function nil))
+    (unless (string= (easy-kill-candidate) "")
+      (kill-new (if easy-kill-append
+                    (concat (car kill-ring) "\n"
+                            (easy-kill-candidate))
+                  (easy-kill-candidate))
+                easy-kill-append)
+      t)))
+
+(defun easy-kill-destroy-candidate ()
+  (let ((hook (make-symbol "easy-kill-destroy-candidate")))
+    (fset hook (lambda ()
+                 (and easy-kill-candidate
+                      (delete-overlay easy-kill-candidate))
+                 (setq easy-kill-candidate nil)
+                 (remove-hook 'post-command-hook hook)))
+    (add-hook 'post-command-hook hook)))
 
 (defun easy-kill-expand ()
   (interactive)
@@ -176,68 +196,49 @@ candidate property instead."
             (easy-kill-adjust-candidate thing (car bounds) (cdr bounds))
             (easy-kill-thing-forward (1- n))))))))
 
+(put 'easy-kill-region 'easy-kill-exit t)
 (defun easy-kill-region ()
   "Kill current selection and exit."
   (interactive "*")
-  (if (not easy-kill-candidate)         ; `easy-kill' has exited
-      (push last-input-event unread-command-events)
-    (let ((beg (overlay-start easy-kill-candidate))
-          (end (overlay-end easy-kill-candidate)))
-      (if (= beg end)
-          (easy-kill-message-nolog "Empty region")
-        (setq easy-kill-exit t)
-        (easy-kill-adjust-candidate nil "")
-        (kill-region beg end)))))
+  (let ((beg (overlay-start easy-kill-candidate))
+        (end (overlay-end easy-kill-candidate)))
+    (if (= beg end)
+        (easy-kill-message-nolog "Empty region")
+      (kill-region beg end))))
 
+(put 'easy-kill-mark-region 'easy-kill-exit t)
 (defun easy-kill-mark-region ()
   (interactive)
-  (if (not easy-kill-candidate)
-      (push last-input-event unread-command-events)
-    (let ((beg (overlay-start easy-kill-candidate))
-          (end (overlay-end easy-kill-candidate)))
-      (if (= beg end)
-          (easy-kill-message-nolog "Empty region")
-        (setq easy-kill-exit t)
-        (easy-kill-adjust-candidate nil "")
-        (set-mark beg)
-        (goto-char end)
-        (activate-mark)))))
+  (let ((beg (overlay-start easy-kill-candidate))
+        (end (overlay-end easy-kill-candidate)))
+    (if (= beg end)
+        (easy-kill-message-nolog "Empty region")
+      (set-mark beg)
+      (goto-char end)
+      (activate-mark))))
 
-(defvar easy-kill-append nil)
-
+(put 'easy-kill-append 'easy-kill-exit t)
 (defun easy-kill-append ()
   (interactive)
-  (if (not easy-kill-candidate)
-      (push last-input-event unread-command-events)
-    (setq easy-kill-append t)
-    (setq easy-kill-exit t)
-    (overlay-put easy-kill-candidate 'face nil)))
+  (setq easy-kill-append t)
+  (when (easy-kill-save-candidate)
+    (easy-kill-message-nolog "Appended")))
 
 (defun easy-kill-activate-keymap ()
   (let ((map (easy-kill-map)))
     (set-temporary-overlay-map
      map
      (lambda ()
-       ;; When any error happens the keymap is active forever.
+       ;; Prevent any error from activating the keymap forever.
        (with-demoted-errors
-         (or (and (not (prog1 easy-kill-exit
-                         (setq easy-kill-exit nil)))
+         (or (and (not (and (symbolp this-command)
+                            (get this-command 'easy-kill-exit)))
                   (eq this-command (lookup-key map (this-command-keys-vector))))
-             (when easy-kill-candidate
-               ;; Do not modify the clipboard here because it will
-               ;; intercept pasting from other programs and
-               ;; `easy-kill-adjust-candidate' already did the work.
-               (let ((interprogram-cut-function nil)
-                     (interprogram-paste-function nil))
-                 (unless (string= (easy-kill-candidate) "")
-                   (kill-new (if easy-kill-append
-                                 (concat (car kill-ring) "\n"
-                                         (easy-kill-candidate))
-                               (easy-kill-candidate))
-                             easy-kill-append)))
-               (delete-overlay easy-kill-candidate)
-               (setq easy-kill-candidate nil)
-               nil)))))))
+             (ignore
+              (easy-kill-destroy-candidate)
+              (unless (and (symbolp this-command)
+                           (get this-command 'easy-kill-exit))
+                (easy-kill-save-candidate)))))))))
 
 ;;;###autoload
 (defun easy-kill (&optional n)
@@ -247,6 +248,7 @@ Temporally activate additional key bindings as follows:
   letters => select or expand things according to `easy-kill-alist';
   0..9    => expand current selection by that number;
   +,=/-   => expand or shrink current selection by 1;
+  @       => append selection to previous kill
   C-w     => kill current selection;
   C-SPC   => turn current selection into active region
   others  => save current selection to kill ring and exit."
