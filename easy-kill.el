@@ -154,9 +154,7 @@ candidate property instead."
 (defun easy-kill-thing (&optional thing n nomsg inhibit-handler)
   ;; N can be -, + and digits
   (interactive
-   (list (cdr (assoc (car (last (listify-key-sequence
-                                 (single-key-description last-command-event))))
-                     easy-kill-alist))
+   (list (cdr (assq last-command-event easy-kill-alist))
          (prefix-numeric-value current-prefix-arg)))
   (let ((thing (or thing (overlay-get easy-kill-candidate 'thing)))
         (n (or n 1)))
