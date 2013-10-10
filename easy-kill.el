@@ -51,6 +51,7 @@ CHAR is used immediately following `easy-kill' to select THING."
     (define-key map "-" 'easy-kill-shrink)
     (define-key map "+" 'easy-kill-expand)
     (define-key map "=" 'easy-kill-expand)
+    (define-key map "!" 'easy-kill-append)
     (define-key map "\C-w" 'easy-kill-region)
     (define-key map (kbd "C-SPC") 'easy-kill-mark-region)
     (define-key map (kbd "C-@") 'easy-kill-mark-region)
@@ -202,6 +203,16 @@ candidate property instead."
         (goto-char end)
         (activate-mark)))))
 
+(defvar easy-kill-append nil)
+
+(defun easy-kill-append ()
+  (interactive)
+  (if (not easy-kill-candidate)
+      (push last-input-event unread-command-events)
+    (setq easy-kill-append t)
+    (setq easy-kill-exit t)
+    (overlay-put easy-kill-candidate 'face nil)))
+
 (defun easy-kill-activate-keymap ()
   (let ((map (easy-kill-map)))
     (set-temporary-overlay-map
@@ -219,7 +230,11 @@ candidate property instead."
                (let ((interprogram-cut-function nil)
                      (interprogram-paste-function nil))
                  (unless (string= (easy-kill-candidate) "")
-                   (kill-new (easy-kill-candidate))))
+                   (kill-new (if easy-kill-append
+                                 (concat (car kill-ring) "\n"
+                                         (easy-kill-candidate))
+                               (easy-kill-candidate))
+                             easy-kill-append)))
                (delete-overlay easy-kill-candidate)
                (setq easy-kill-candidate nil)
                nil)))))))
@@ -238,6 +253,7 @@ Temporally activate additional key bindings as follows:
   (interactive "p")
   (if (use-region-p)
       (kill-ring-save (region-beginning) (region-end))
+    (setq easy-kill-append (eq last-command 'kill-region))
     (setq easy-kill-candidate
           (let ((o (make-overlay (point) (point))))
             (overlay-put o 'face 'easy-kill-face)
@@ -245,7 +261,6 @@ Temporally activate additional key bindings as follows:
             ;; `hl-line-mode'.
             (overlay-put o 'priority 999)
             o))
-    (setq deactivate-mark t)
     (dolist (thing '(url email line))
       (easy-kill-thing thing n 'nomsg)
       (or (string= (easy-kill-candidate) "")
