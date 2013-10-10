@@ -160,8 +160,8 @@ candidate property instead."
         (n (or n 1)))
     (cond
      ((and (not inhibit-handler)
-           (intern-soft (format "easy-kill-on-%s" thing)))
-      (funcall (intern-soft (format "easy-kill-on-%s" thing)) n))
+           (fboundp (intern-soft (format "easy-kill-on-%s" thing))))
+      (funcall (intern (format "easy-kill-on-%s" thing)) n))
      ((or (eq thing (overlay-get easy-kill-candidate 'thing))
           (memq n '(+ -)))
       (easy-kill-thing-forward (pcase n
@@ -304,22 +304,18 @@ inspected."
         (if (and (or (not bound) (> (point) bound))
                  (/= point (point)))
             (easy-kill-backward-down (point) bound)
-          point))
-    (scan-error point)))
+          (goto-char point)))
+    (scan-error (goto-char point))))
 
 (defun easy-kill-bounds-of-list (n)
   (save-excursion
-    (when (pcase n
-            (`+ (let ((start (overlay-start easy-kill-candidate)))
-                  (goto-char start)
-                  (easy-kill-backward-up)
-                  (/= start (point))))
-            (`- (let ((pt (point)))
-                  (goto-char (easy-kill-backward-down
-                              (point) (overlay-start easy-kill-candidate)))
-                  (/= pt (point))))
-            (_ (error "Unsupported argument `%s'" n)))
-      (cons (point) (progn (forward-sexp 1) (point))))))
+    (pcase n
+      (`+ (goto-char (overlay-start easy-kill-candidate))
+          (easy-kill-backward-up))
+      (`- (easy-kill-backward-down
+           (point) (overlay-start easy-kill-candidate)))
+      (_ (error "Unsupported argument `%s'" n)))
+    (bounds-of-thing-at-point 'sexp)))
 
 (defun easy-kill-on-list (n)
   (if (memq n '(+ -))
