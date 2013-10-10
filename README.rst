@@ -20,11 +20,10 @@ Keys (customisable) immediately following ``M-w``:
 #. ``l`` -> list at point
 #. ``d`` -> defun at point
 #. ``b`` -> ``buffer-file-name`` or ``default-directory``
-#. ``C-w`` -> kill current region
 #. ``@`` -> append selection to previous kill
+#. ``C-w`` -> kill selection
 #. ``+``, ``-`` and ``0..9`` -> expand/shrink selection
-#. ``C-@`` or ``C-SPC`` -> turn current selection into an active
-   region
+#. ``SPC`` -> turn selection into an active region
 
 The following `screenshot <http://i.imgur.com/8TNgPly.png>`_ shows
 ``M-w l`` in action:

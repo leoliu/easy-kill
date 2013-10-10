@@ -3,7 +3,7 @@
 ;; Copyright (C) 2013  Leo Liu
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
-;; Version: 0.7.0
+;; Version: 0.8.0
 ;; Package-Requires: ((emacs "24"))
 ;; Keywords: convenience
 ;; Created: 2013-08-12
@@ -52,9 +52,8 @@ CHAR is used immediately following `easy-kill' to select THING."
     (define-key map "+" 'easy-kill-expand)
     (define-key map "=" 'easy-kill-expand)
     (define-key map "@" 'easy-kill-append)
+    (define-key map " " 'easy-kill-mark-region)
     (define-key map "\C-w" 'easy-kill-region)
-    (define-key map (kbd "C-SPC") 'easy-kill-mark-region)
-    (define-key map (kbd "C-@") 'easy-kill-mark-region)
     (mapc (lambda (d)
             (define-key map (number-to-string d) 'easy-kill-digit-argument))
           (number-sequence 0 9))
@@ -245,13 +244,13 @@ candidate property instead."
   "Kill thing at point in the order of region, url, email and line.
 Temporally activate additional key bindings as follows:
 
-  letters => select or expand things according to `easy-kill-alist';
-  0..9    => expand current selection by that number;
-  +,=/-   => expand or shrink current selection by 1;
+  letters => select or expand selection according to `easy-kill-alist';
+  0..9    => expand selection by that number;
+  +,=/-   => expand or shrink selection
   @       => append selection to previous kill
-  C-w     => kill current selection;
-  C-SPC   => turn current selection into active region
-  others  => save current selection to kill ring and exit."
+  C-w     => kill selection;
+  SPC     => turn selection into an active region
+  others  => save selection and exit."
   (interactive "p")
   (if (use-region-p)
       (kill-ring-save (region-beginning) (region-end))
