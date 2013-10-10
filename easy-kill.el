@@ -45,8 +45,11 @@ CHAR is used immediately following `easy-kill' to select THING."
   :type '(repeat (cons character symbol))
   :group 'killing)
 
-(defun easy-kill-map ()
-  "Build the keymap according to `easy-kill-alist'."
+(defface easy-kill-face '((t (:inherit 'secondary-selection)))
+  "Faced used to highlight kill candidate."
+  :group 'killing)
+
+(defvar easy-kill-base-map
   (let ((map (make-sparse-keymap)))
     (define-key map "-" 'easy-kill-shrink)
     (define-key map "+" 'easy-kill-expand)
@@ -57,15 +60,17 @@ CHAR is used immediately following `easy-kill' to select THING."
     (mapc (lambda (d)
             (define-key map (number-to-string d) 'easy-kill-digit-argument))
           (number-sequence 0 9))
+    map))
+
+(defun easy-kill-map ()
+  "Build the keymap according to `easy-kill-alist'."
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map easy-kill-base-map)
     (mapc (lambda (c)
             ;; (define-key map (vector meta-prefix-char c) 'easy-kill-select)
             (define-key map (char-to-string c) 'easy-kill-thing))
           (mapcar 'car easy-kill-alist))
     map))
-
-(defface easy-kill-face '((t (:inherit 'secondary-selection)))
-  "Faced used to highlight kill candidate."
-  :group 'killing)
 
 (defun easy-kill-message-nolog (format-string &rest args)
   "Same as `message' except not writing to *Messages* buffer."
