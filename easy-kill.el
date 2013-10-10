@@ -118,18 +118,18 @@ candidate property instead."
        (funcall interprogram-cut-function (easy-kill-candidate))))
 
 (defun easy-kill-save-candidate ()
-  ;; Do not modify the clipboard here because it may be called in
-  ;; `pre-command-hook' and will confuse `yank' if it is the next
-  ;; command. Also `easy-kill-adjust-candidate' already did the work.
-  (let ((interprogram-cut-function nil)
-        (interprogram-paste-function nil))
-    (unless (string= (easy-kill-candidate) "")
+  (unless (string= (easy-kill-candidate) "")
+    ;; Do not modify the clipboard here because this may be called in
+    ;; `pre-command-hook' and will confuse `yank' if it is the next
+    ;; command. Also `easy-kill-adjust-candidate' already did the
+    ;; work.
+    (let ((interprogram-cut-function nil)
+          (interprogram-paste-function nil))
       (kill-new (if easy-kill-append
-                    (concat (car kill-ring) "\n"
-                            (easy-kill-candidate))
+                    (concat (car kill-ring) "\n" (easy-kill-candidate))
                   (easy-kill-candidate))
-                easy-kill-append)
-      t)))
+                easy-kill-append))
+    t))
 
 (defun easy-kill-destroy-candidate ()
   (let ((hook (make-symbol "easy-kill-destroy-candidate")))
@@ -313,10 +313,14 @@ inspected."
             (return url)))))))
 
 (defun easy-kill-backward-up ()
-  (condition-case nil
-      (up-list -1)
-    (scan-error (let ((ppss (syntax-ppss)))
-                  (and (nth 3 ppss) (goto-char (nth 8 ppss)))))))
+  (let ((ppss (syntax-ppss)))
+    (condition-case nil
+        (progn
+          (up-list -1)
+          ;; `up-list' may jump to another string.
+          (when (and (nth 3 ppss) (< (point) (nth 8 ppss)))
+            (goto-char (nth 8 ppss))))
+      (scan-error (and (nth 3 ppss) (goto-char (nth 8 ppss)))))))
 
 (defun easy-kill-backward-down (point &optional bound)
   (condition-case nil
