@@ -45,7 +45,7 @@ CHAR is used immediately following `easy-kill' to select THING."
   :type '(repeat (cons character symbol))
   :group 'killing)
 
-(defface easy-kill-face '((t (:inherit 'secondary-selection)))
+(defface easy-kill-selection '((t (:inherit 'secondary-selection)))
   "Faced used to highlight kill candidate."
   :group 'killing)
 
@@ -85,8 +85,28 @@ CHAR is used immediately following `easy-kill' to select THING."
         (t "")))
 
 (defvar easy-kill-candidate nil)
-
 (defvar easy-kill-append nil)
+(defvar easy-kill-mark nil)
+
+(defun easy-kill-init-candidate (n)
+  (let ((o (make-overlay (point) (point))))
+    (unless easy-kill-mark
+      (overlay-put o 'face 'easy-kill-selection))
+    (overlay-put o 'origin (point))
+    ;; Use higher priority to avoid shadowing by, for example,
+    ;; `hl-line-mode'.
+    (overlay-put o 'priority 999)
+    (when easy-kill-mark
+      (let ((i (make-overlay (point) (point))))
+        (overlay-put i 'priority (1+ (overlay-get o 'priority)))
+        (overlay-put i 'after-string (propertize "_" 'face 'error))
+        (overlay-put o 'origin-indicator i)))
+    (setq easy-kill-candidate o)
+    (dolist (thing '(url email line))
+      (easy-kill-thing thing n 'nomsg)
+      (or (string= (easy-kill-candidate) "")
+          (return)))
+    o))
 
 (defun easy-kill-candidate ()
   "Get the kill candidate as a string.
@@ -105,20 +125,23 @@ Otherwise, it is the value of the overlay's candidate property."
   "Adjust kill candidate to THING, BEG, END.
 If BEG is a string, shrink the overlay to zero length and set its
 candidate property instead."
-  (let ((o easy-kill-candidate))
+  (let* ((o easy-kill-candidate)
+         (beg (or beg (overlay-start o)))
+         (end (or end (overlay-end o))))
     (overlay-put o 'thing thing)
     (if (stringp beg)
         (progn
           (move-overlay o (point) (point))
           (overlay-put o 'candidate beg)
           (easy-kill-message-nolog "%s" beg))
-      (move-overlay o (or beg (overlay-start o)) (or end (overlay-end o)))))
-  (and interprogram-cut-function
-       (not (string= (easy-kill-candidate) ""))
-       (funcall interprogram-cut-function (easy-kill-candidate))))
+      (move-overlay o beg end))
+    (cond (easy-kill-mark (easy-kill-mark-region))
+          ((and interprogram-cut-function
+                (not (string= (easy-kill-candidate) "")))
+           (funcall interprogram-cut-function (easy-kill-candidate))))))
 
 (defun easy-kill-save-candidate ()
-  (unless (string= (easy-kill-candidate) "")
+  (unless (or easy-kill-mark (string= (easy-kill-candidate) ""))
     ;; Do not modify the clipboard here because this may be called in
     ;; `pre-command-hook' and will confuse `yank' if it is the next
     ;; command. Also `easy-kill-adjust-candidate' already did the
@@ -134,8 +157,10 @@ candidate property instead."
 (defun easy-kill-destroy-candidate ()
   (let ((hook (make-symbol "easy-kill-destroy-candidate")))
     (fset hook (lambda ()
-                 (and easy-kill-candidate
-                      (delete-overlay easy-kill-candidate))
+                 (when easy-kill-candidate
+                   (let ((i (overlay-get easy-kill-candidate 'origin-indicator)))
+                     (and (overlayp i) (delete-overlay i)))
+                   (delete-overlay easy-kill-candidate))
                  (setq easy-kill-candidate nil)
                  (remove-hook 'post-command-hook hook)))
     (add-hook 'post-command-hook hook)))
@@ -164,16 +189,17 @@ candidate property instead."
         (start (overlay-start easy-kill-candidate))
         (end (overlay-end easy-kill-candidate)))
     (when thing
-      (save-excursion
-        (goto-char end)
-        (with-demoted-errors
-          (dotimes (_ (abs n))
-            (forward-thing thing direction)
-            (when (<= (point) start)
-              (forward-thing thing 1)
-              (return))))
-        (when (/= end (point))
-          (easy-kill-adjust-candidate thing nil (point))
+      (let ((new-end (save-excursion
+                       (goto-char end)
+                       (with-demoted-errors
+                         (dotimes (_ (abs n))
+                           (forward-thing thing direction)
+                           (when (<= (point) start)
+                             (forward-thing thing 1)
+                             (return)))
+                         (point)))))
+        (when (/= end new-end)
+          (easy-kill-adjust-candidate thing nil new-end)
           t)))))
 
 (defun easy-kill-thing (&optional thing n nomsg inhibit-handler)
@@ -183,6 +209,8 @@ candidate property instead."
          (prefix-numeric-value current-prefix-arg)))
   (let ((thing (or thing (overlay-get easy-kill-candidate 'thing)))
         (n (or n 1)))
+    (when easy-kill-mark
+      (goto-char (overlay-get easy-kill-candidate 'origin)))
     (cond
      ((and (not inhibit-handler)
            (fboundp (intern-soft (format "easy-kill-on-%s" thing))))
@@ -198,7 +226,9 @@ candidate property instead."
               (unless nomsg
                 (easy-kill-message-nolog "No `%s'" thing))
             (easy-kill-adjust-candidate thing (car bounds) (cdr bounds))
-            (easy-kill-thing-forward (1- n))))))))
+            (easy-kill-thing-forward (1- n))))))
+    (when easy-kill-mark
+      (easy-kill-adjust-candidate thing))))
 
 (put 'easy-kill-region 'easy-kill-exit t)
 (defun easy-kill-region ()
@@ -242,7 +272,8 @@ candidate property instead."
               (easy-kill-destroy-candidate)
               (unless (and (symbolp this-command)
                            (get this-command 'easy-kill-exit))
-                (easy-kill-save-candidate)))))))))
+                (easy-kill-save-candidate))
+              (setq easy-kill-mark nil))))))))
 
 ;;;###autoload
 (defun easy-kill (&optional n)
@@ -260,20 +291,17 @@ Temporally activate additional key bindings as follows:
   (if (use-region-p)
       (kill-ring-save (region-beginning) (region-end))
     (setq easy-kill-append (eq last-command 'kill-region))
-    (setq easy-kill-candidate
-          (let ((o (make-overlay (point) (point))))
-            (overlay-put o 'face 'easy-kill-face)
-            ;; Use higher priority to avoid shadowing by, for example,
-            ;; `hl-line-mode'.
-            (overlay-put o 'priority 999)
-            o))
-    (dolist (thing '(url email line))
-      (easy-kill-thing thing n 'nomsg)
-      (or (string= (easy-kill-candidate) "")
-          (return)))
+    (easy-kill-init-candidate n)
     (when (zerop (buffer-size))
       (easy-kill-message-nolog "Warn: `easy-kill' activated in empty buffer"))
     (easy-kill-activate-keymap)))
+
+;;;###autoload
+(defun easy-mark (&optional n)
+  (interactive "p")
+  (setq easy-kill-mark t)
+  (easy-kill-init-candidate n)
+  (easy-kill-activate-keymap))
 
 ;;; Extended things
 
