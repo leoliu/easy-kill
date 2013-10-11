@@ -196,8 +196,8 @@ candidate property instead."
                            (forward-thing thing direction)
                            (when (<= (point) start)
                              (forward-thing thing 1)
-                             (return)))
-                         (point)))))
+                             (return))))
+                       (point))))
         (when (/= end new-end)
           (easy-kill-adjust-candidate thing nil new-end)
           t)))))
@@ -298,6 +298,7 @@ Temporally activate additional key bindings as follows:
 
 ;;;###autoload
 (defun easy-mark (&optional n)
+  "Like `easy-kill' (which see) but for marking."
   (interactive "p")
   (setq easy-kill-mark t)
   (easy-kill-init-candidate n)
@@ -322,7 +323,7 @@ party; +, full path."
   "Get url at point or from char properties.
 Char properties `help-echo', `shr-url' and `w3m-href-anchor' are
 inspected."
-  (if (bounds-of-thing-at-point 'url)
+  (if (or easy-kill-mark (bounds-of-thing-at-point 'url))
       (easy-kill-thing 'url nil nil t)
     (let ((get-url (lambda (text)
                      (when (stringp text)

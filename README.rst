@@ -2,9 +2,11 @@
  Kill Things Easily in Emacs
 =============================
  
-``easy-kill`` let users kill things at point without moving point. Its
-goal is to be a drop-in replacement for ``kill-ring-save``. It tries
-in order:
+Commands ``easy-kill`` and ``easy-mark`` let users kill/mark things at
+point easily.
+
+``easy-kill`` is a drop-in replacement for ``kill-ring-save``. It
+tries in order:
 
 #. current region if active
 #. url at point (snarf char properties ``help-echo``, ``shr-url``,
@@ -12,7 +14,7 @@ in order:
 #. email at point
 #. current line
 
-Keys (customisable) immediately following ``M-w``:
+Keys (customisable) immediately following ``easy-kill``:
 
 #. ``w`` -> word at point
 #. ``s`` -> sexp at point
