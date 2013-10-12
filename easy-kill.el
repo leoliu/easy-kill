@@ -39,14 +39,24 @@
     (?l . list)
     (?f . filename)
     (?d . defun)
+    (?e . line)
     (?b . buffer-file-name))
   "A list of (CHAR . THING).
 CHAR is used immediately following `easy-kill' to select THING."
   :type '(repeat (cons character symbol))
   :group 'killing)
 
+(defcustom easy-kill-try-things '(url email line)
+  "A list of things for `easy-kill' to try."
+  :type '(repeat symbol)
+  :group 'killing)
+
 (defface easy-kill-selection '((t (:inherit 'secondary-selection)))
   "Faced used to highlight kill candidate."
+  :group 'killing)
+
+(defface easy-kill-origin '((t (:inverse-video t :inherit 'error)))
+  "Faced used to highlight the origin."
   :group 'killing)
 
 (defvar easy-kill-base-map
@@ -97,12 +107,13 @@ CHAR is used immediately following `easy-kill' to select THING."
     ;; `hl-line-mode'.
     (overlay-put o 'priority 999)
     (when easy-kill-mark
-      (let ((i (make-overlay (point) (point))))
+      (let ((i (make-overlay (point)
+                             (funcall (if (eolp) #'1- #'1+) (point)))))
         (overlay-put i 'priority (1+ (overlay-get o 'priority)))
-        (overlay-put i 'after-string (propertize "_" 'face 'error))
+        (overlay-put i 'face 'easy-kill-origin)
         (overlay-put o 'origin-indicator i)))
     (setq easy-kill-candidate o)
-    (dolist (thing '(url email line))
+    (dolist (thing easy-kill-try-things)
       (easy-kill-thing thing n 'nomsg)
       (or (string= (easy-kill-candidate) "")
           (return)))
@@ -228,7 +239,7 @@ candidate property instead."
             (easy-kill-adjust-candidate thing (car bounds) (cdr bounds))
             (easy-kill-thing-forward (1- n))))))
     (when easy-kill-mark
-      (easy-kill-adjust-candidate thing))))
+      (easy-kill-adjust-candidate (overlay-get easy-kill-candidate 'thing)))))
 
 (put 'easy-kill-region 'easy-kill-exit t)
 (defun easy-kill-region ()
@@ -246,7 +257,8 @@ candidate property instead."
   (let ((beg (overlay-start easy-kill-candidate))
         (end (overlay-end easy-kill-candidate)))
     (if (= beg end)
-        (easy-kill-message-nolog "Empty region")
+        (when (called-interactively-p 'interact)
+          (easy-kill-message-nolog "Empty region"))
       (set-mark beg)
       (goto-char end)
       (activate-mark))))
@@ -324,7 +336,7 @@ party; +, full path."
 Char properties `help-echo', `shr-url' and `w3m-href-anchor' are
 inspected."
   (if (or easy-kill-mark (bounds-of-thing-at-point 'url))
-      (easy-kill-thing 'url nil nil t)
+      (easy-kill-thing 'url nil t t)
     (let ((get-url (lambda (text)
                      (when (stringp text)
                        (with-temp-buffer
