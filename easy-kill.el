@@ -167,13 +167,13 @@ candidate property instead."
 
 (defun easy-kill-destroy-candidate ()
   (let ((hook (make-symbol "easy-kill-destroy-candidate")))
-    (fset hook (lambda ()
-                 (when easy-kill-candidate
-                   (let ((i (overlay-get easy-kill-candidate 'origin-indicator)))
-                     (and (overlayp i) (delete-overlay i)))
-                   (delete-overlay easy-kill-candidate))
-                 (setq easy-kill-candidate nil)
-                 (remove-hook 'post-command-hook hook)))
+    (fset hook `(lambda ()
+                  (let ((o ,easy-kill-candidate))
+                    (when o
+                      (let ((i (overlay-get o 'origin-indicator)))
+                        (and (overlayp i) (delete-overlay i)))
+                      (delete-overlay o)))
+                  (remove-hook 'post-command-hook ',hook)))
     (add-hook 'post-command-hook hook)))
 
 (defun easy-kill-expand ()
