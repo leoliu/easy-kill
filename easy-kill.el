@@ -317,6 +317,15 @@ Temporally activate additional key bindings as follows:
   (easy-kill-init-candidate n)
   (easy-kill-activate-keymap))
 
+;;;###autoload
+(defun easy-mark-sexp (&optional n)
+  (interactive "p")
+  (let ((easy-kill-try-things '(sexp)))
+    (easy-mark n)
+    (unless (overlay-get easy-kill-candidate 'thing)
+      (overlay-put easy-kill-candidate 'thing 'sexp)
+      (easy-kill-thing 'sexp n))))
+
 ;;; Extended things
 
 (defun easy-kill-on-buffer-file-name (n)
