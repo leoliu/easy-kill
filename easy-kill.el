@@ -268,6 +268,7 @@ candidate property instead."
   (interactive)
   (setq easy-kill-append t)
   (when (easy-kill-save-candidate)
+    (setq deactivate-mark t)
     (easy-kill-message-nolog "Appended")))
 
 (defun easy-kill-activate-keymap ()
