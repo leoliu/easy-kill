@@ -260,7 +260,7 @@ candidate property instead."
   (interactive)
   (when easy-kill-mark
     (goto-char (overlay-get easy-kill-candidate 'origin))
-    (setq deactivate-mark t))
+    (deactivate-mark))
   (ding))
 
 (put 'easy-kill-region 'easy-kill-exit t)
