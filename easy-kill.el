@@ -108,10 +108,10 @@ CHAR is used immediately following `easy-kill' to select THING."
     ;; `hl-line-mode'.
     (overlay-put o 'priority 999)
     (when easy-kill-mark
-      (let ((i (make-overlay (point)
-                             (funcall (if (eolp) #'1- #'1+) (point)))))
+      (let ((i (make-overlay (point) (point))))
         (overlay-put i 'priority (1+ (overlay-get o 'priority)))
         (overlay-put i 'face 'easy-kill-origin)
+        (overlay-put i 'as (propertize " " 'face 'easy-kill-origin))
         (overlay-put o 'origin-indicator i)))
     (setq easy-kill-candidate o)
     (dolist (thing easy-kill-try-things)
@@ -119,6 +119,18 @@ CHAR is used immediately following `easy-kill' to select THING."
       (or (string= (easy-kill-candidate) "")
           (return)))
     o))
+
+(defun easy-kill-indicate-origin ()
+  (let ((i (overlay-get easy-kill-candidate 'origin-indicator))
+        (origin (overlay-get easy-kill-candidate 'origin)))
+    (cond
+     ((not (overlayp i)) nil)
+     ((= origin (point))
+      (overlay-put i 'after-string nil))
+     ((memq (char-after origin) '(?\t ?\n))
+      (overlay-put i 'after-string (overlay-get i 'as)))
+     (t (move-overlay i origin (1+ origin))
+        (overlay-put i 'after-string nil)))))
 
 (defun easy-kill-candidate ()
   "Get the kill candidate as a string.
@@ -147,7 +159,8 @@ candidate property instead."
           (overlay-put o 'candidate beg)
           (easy-kill-message-nolog "%s" beg))
       (move-overlay o beg end))
-    (cond (easy-kill-mark (easy-kill-mark-region))
+    (cond (easy-kill-mark (easy-kill-mark-region)
+                          (easy-kill-indicate-origin))
           ((and interprogram-cut-function
                 (not (string= (easy-kill-candidate) "")))
            (funcall interprogram-cut-function (easy-kill-candidate))))))
