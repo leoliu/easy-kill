@@ -67,6 +67,7 @@ CHAR is used immediately following `easy-kill' to select THING."
     (define-key map "@" 'easy-kill-append)
     (define-key map " " 'easy-kill-mark-region)
     (define-key map "\C-w" 'easy-kill-region)
+    (define-key map "\C-g" 'easy-kill-abort)
     (mapc (lambda (d)
             (define-key map (number-to-string d) 'easy-kill-digit-argument))
           (number-sequence 0 9))
@@ -241,6 +242,14 @@ candidate property instead."
     (when easy-kill-mark
       (easy-kill-adjust-candidate (overlay-get easy-kill-candidate 'thing)))))
 
+(put 'easy-kill-abort 'easy-kill-exit t)
+(defun easy-kill-abort ()
+  (interactive)
+  (when easy-kill-mark
+    (goto-char (overlay-get easy-kill-candidate 'origin))
+    (setq deactivate-mark t))
+  (ding))
+
 (put 'easy-kill-region 'easy-kill-exit t)
 (defun easy-kill-region ()
   "Kill current selection and exit."
@@ -285,8 +294,7 @@ candidate property instead."
               (easy-kill-destroy-candidate)
               (unless (and (symbolp this-command)
                            (get this-command 'easy-kill-exit))
-                (easy-kill-save-candidate))
-              (setq easy-kill-mark nil))))))))
+                (easy-kill-save-candidate)))))))))
 
 ;;;###autoload
 (defun easy-kill (&optional n)
@@ -303,6 +311,7 @@ Temporally activate additional key bindings as follows:
   (interactive "p")
   (if (use-region-p)
       (kill-ring-save (region-beginning) (region-end))
+    (setq easy-kill-mark nil)
     (setq easy-kill-append (eq last-command 'kill-region))
     (easy-kill-init-candidate n)
     (when (zerop (buffer-size))
