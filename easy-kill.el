@@ -350,7 +350,9 @@ Temporally activate additional key bindings as follows:
       (overlay-put easy-kill-candidate 'thing 'sexp)
       (easy-kill-thing 'sexp n))))
 
-;;; Extended things
+;;;; Extended things
+
+;;; Handler for `buffer-file-name'.
 
 (defun easy-kill-on-buffer-file-name (n)
   "Get `buffer-file-name' or `default-directory'.
@@ -364,6 +366,8 @@ party; +, full path."
                      ((pred (eq 0)) (file-name-nondirectory file))
                      (_ file))))
         (easy-kill-adjust-candidate 'buffer-file-name text)))))
+
+;;; Handler for `url'.
 
 (defun easy-kill-on-url (&optional _n)
   "Get url at point or from char properties.
@@ -387,13 +391,15 @@ inspected."
             (easy-kill-adjust-candidate 'url url)
             (return url)))))))
 
+;;; Handler for `list'.
+
 (defvar up-list-fn)                     ; Dynamically bound
 
 (defun easy-kill-backward-up ()
   (let ((ppss (syntax-ppss)))
     (condition-case nil
         (progn
-          (funcall (or up-list-fn #'up-list) -1)
+          (funcall (or (bound-and-true-p up-list-fn) #'up-list) -1)
           ;; `up-list' may jump to another string.
           (when (and (nth 3 ppss) (< (point) (nth 8 ppss)))
             (goto-char (nth 8 ppss))))
