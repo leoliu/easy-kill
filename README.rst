@@ -26,6 +26,7 @@ Keys (customisable) immediately following ``easy-kill``:
 #. ``C-w`` -> kill selection
 #. ``+``, ``-`` and ``0..9`` -> expand/shrink selection
 #. ``SPC`` -> turn selection into an active region
+#. ``C-g`` -> abort
 
 The following `screenshot <http://i.imgur.com/8TNgPly.png>`_ shows
 ``M-w l`` in action:

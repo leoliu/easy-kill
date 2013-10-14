@@ -51,11 +51,11 @@ CHAR is used immediately following `easy-kill' to select THING."
   :type '(repeat symbol)
   :group 'killing)
 
-(defface easy-kill-selection '((t (:inherit 'secondary-selection)))
+(defface easy-kill-selection '((default (:inherit 'secondary-selection)))
   "Faced used to highlight kill candidate."
   :group 'killing)
 
-(defface easy-kill-origin '((t (:inverse-video t :inherit 'error)))
+(defface easy-kill-origin '((default (:inverse-video t :inherit 'error)))
   "Faced used to highlight the origin."
   :group 'killing)
 
@@ -316,10 +316,11 @@ Temporally activate additional key bindings as follows:
 
   letters => select or expand selection according to `easy-kill-alist';
   0..9    => expand selection by that number;
-  +,=/-   => expand or shrink selection
-  @       => append selection to previous kill
+  +,=/-   => expand or shrink selection;
+  @       => append selection to previous kill;
   C-w     => kill selection;
-  SPC     => turn selection into an active region
+  SPC     => turn selection into an active region;
+  C-g     => abort;
   others  => save selection and exit."
   (interactive "p")
   (if (use-region-p)
