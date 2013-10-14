@@ -387,11 +387,13 @@ inspected."
             (easy-kill-adjust-candidate 'url url)
             (return url)))))))
 
+(defvar up-list-fn)                     ; Dynamically bound
+
 (defun easy-kill-backward-up ()
   (let ((ppss (syntax-ppss)))
     (condition-case nil
         (progn
-          (up-list -1)
+          (funcall (or up-list-fn #'up-list) -1)
           ;; `up-list' may jump to another string.
           (when (and (nth 3 ppss) (< (point) (nth 8 ppss)))
             (goto-char (nth 8 ppss))))
@@ -417,17 +419,44 @@ inspected."
       (_ (error "Unsupported argument `%s'" n)))
     (bounds-of-thing-at-point 'sexp)))
 
-(defun easy-kill-on-list (n)
-  (if (memq n '(+ -))
+(defvar nxml-sexp-element-flag)
+
+(defun easy-kill-on-nxml-element (n)
+  (let ((nxml-sexp-element-flag t)
+        (up-list-fn (when (derived-mode-p 'nxml-mode)
+                      #'nxml-up-element)))
+    (cond
+     ((memq n '(+ -))
       (let ((bounds (easy-kill-bounds-of-list n)))
         (when bounds
-          (easy-kill-adjust-candidate 'list (car bounds) (cdr bounds))))
-    (easy-kill-thing 'list n nil t)))
+          (easy-kill-adjust-candidate 'list (car bounds) (cdr bounds)))))
+     ((eq 'list (overlay-get easy-kill-candidate 'thing))
+      (let ((new-end (save-excursion
+                       (goto-char (overlay-end easy-kill-candidate))
+                       (forward-sexp n)
+                       (point))))
+        (when (and new-end (/= new-end (overlay-end easy-kill-candidate)))
+          (easy-kill-adjust-candidate 'list nil new-end))))
+     (t (save-excursion
+          (ignore-errors (easy-kill-backward-up))
+          (easy-kill-thing 'sexp n nil t)
+          (overlay-put easy-kill-candidate 'thing 'list))))))
+
+(defun easy-kill-on-list (n)
+  (cond
+   ((derived-mode-p 'nxml-mode)
+    (easy-kill-on-nxml-element n))
+   ((memq n '(+ -))
+    (let ((bounds (easy-kill-bounds-of-list n)))
+      (when bounds
+        (easy-kill-adjust-candidate 'list (car bounds) (cdr bounds)))))
+   (t (easy-kill-thing 'list n nil t))))
 
 (defun easy-kill-on-sexp (n)
-  (if (memq n '(+ -))
-      (easy-kill-on-list n)
-    (easy-kill-thing 'sexp n nil t)))
+  (let ((nxml-sexp-element-flag t))
+    (if (memq n '(+ -))
+        (easy-kill-on-list n)
+      (easy-kill-thing 'sexp n nil t))))
 
 (provide 'easy-kill)
 ;;; easy-kill.el ends here
