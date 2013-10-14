@@ -51,11 +51,11 @@ CHAR is used immediately following `easy-kill' to select THING."
   :type '(repeat symbol)
   :group 'killing)
 
-(defface easy-kill-selection '((default (:inherit 'secondary-selection)))
+(defface easy-kill-selection '((t (:inherit secondary-selection)))
   "Faced used to highlight kill candidate."
   :group 'killing)
 
-(defface easy-kill-origin '((default (:inverse-video t :inherit 'error)))
+(defface easy-kill-origin '((t (:inverse-video t :inherit error)))
   "Faced used to highlight the origin."
   :group 'killing)
 
