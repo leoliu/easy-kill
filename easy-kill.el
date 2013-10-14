@@ -166,7 +166,7 @@ candidate property instead."
            (funcall interprogram-cut-function (easy-kill-candidate))))))
 
 (defun easy-kill-save-candidate ()
-  (unless (or easy-kill-mark (string= (easy-kill-candidate) ""))
+  (unless (string= (easy-kill-candidate) "")
     ;; Do not modify the clipboard here because this may be called in
     ;; `pre-command-hook' and will confuse `yank' if it is the next
     ;; command. Also `easy-kill-adjust-candidate' already did the
@@ -305,8 +305,9 @@ candidate property instead."
                   (eq this-command (lookup-key map (this-command-keys-vector))))
              (ignore
               (easy-kill-destroy-candidate)
-              (unless (and (symbolp this-command)
-                           (get this-command 'easy-kill-exit))
+              (unless (or easy-kill-mark
+                          (and (symbolp this-command)
+                               (get this-command 'easy-kill-exit)))
                 (easy-kill-save-candidate)))))))))
 
 ;;;###autoload

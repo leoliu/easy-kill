@@ -38,6 +38,9 @@ The following `screenshot <http://i.imgur.com/8TNgPly.png>`_ shows
 To Use
 ~~~~~~
 
+``easy-kill`` is available on `MELPA
+<http://melpa.milkbox.net/#/easy-kill>`_.
+
 ::
 
    (require 'easy-kill)
