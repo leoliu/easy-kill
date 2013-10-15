@@ -141,8 +141,8 @@ Otherwise, it is the value of the overlay's candidate property."
    (with-current-buffer (overlay-buffer easy-kill-candidate)
      (if (/= (overlay-start easy-kill-candidate)
              (overlay-end easy-kill-candidate))
-         (buffer-substring (overlay-start easy-kill-candidate)
-                           (overlay-end easy-kill-candidate))
+         (filter-buffer-substring (overlay-start easy-kill-candidate)
+                                  (overlay-end easy-kill-candidate))
        (overlay-get easy-kill-candidate 'candidate)))))
 
 (defun easy-kill-adjust-candidate (thing &optional beg end)
