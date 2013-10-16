@@ -415,6 +415,7 @@ inspected."
   (condition-case nil
       (progn
         (easy-kill-backward-up)
+        (backward-prefix-chars)
         (if (and (or (not bound) (> (point) bound))
                  (/= point (point)))
             (easy-kill-backward-down (point) bound)
