@@ -83,10 +83,14 @@ CHAR is used immediately following `easy-kill' to select THING."
           (mapcar 'car easy-kill-alist))
     map))
 
+(defvar easy-kill-inhibit-message nil)
+
 (defun easy-kill-message-nolog (format-string &rest args)
-  "Same as `message' except not writing to *Messages* buffer."
-  (let (message-log-max)
-    (apply 'message format-string args)))
+  "Same as `message' except not writing to *Messages* buffer.
+Do nothing if `easy-kill-inhibit-message' is non-nil."
+  (unless easy-kill-inhibit-message
+    (let (message-log-max)
+      (apply 'message format-string args))))
 
 (defun easy-kill-strip-trailing (s)
   (cond ((stringp s)
@@ -114,10 +118,11 @@ CHAR is used immediately following `easy-kill' to select THING."
         (overlay-put i 'as (propertize " " 'face 'easy-kill-origin))
         (overlay-put o 'origin-indicator i)))
     (setq easy-kill-candidate o)
-    (dolist (thing easy-kill-try-things)
-      (easy-kill-thing thing n 'nomsg)
-      (or (string= (easy-kill-candidate) "")
-          (return)))
+    (let ((easy-kill-inhibit-message t))
+      (dolist (thing easy-kill-try-things)
+        (easy-kill-thing thing n)
+        (or (string= (easy-kill-candidate) "")
+            (return))))
     o))
 
 (defun easy-kill-indicate-origin ()
@@ -227,7 +232,7 @@ candidate property instead."
           (easy-kill-adjust-candidate thing nil new-end)
           t)))))
 
-(defun easy-kill-thing (&optional thing n nomsg inhibit-handler)
+(defun easy-kill-thing (&optional thing n inhibit-handler)
   ;; N can be -, + and digits
   (interactive
    (list (cdr (assq last-command-event easy-kill-alist))
@@ -248,8 +253,7 @@ candidate property instead."
                                  (n n))))
      (t (let ((bounds (bounds-of-thing-at-point thing)))
           (if (not bounds)
-              (unless nomsg
-                (easy-kill-message-nolog "No `%s'" thing))
+              (easy-kill-message-nolog "No `%s'" thing)
             (easy-kill-adjust-candidate thing (car bounds) (cdr bounds))
             (easy-kill-thing-forward (1- n))))))
     (when easy-kill-mark
@@ -282,8 +286,7 @@ candidate property instead."
   (let ((beg (overlay-start easy-kill-candidate))
         (end (overlay-end easy-kill-candidate)))
     (if (= beg end)
-        (when (called-interactively-p 'interact)
-          (easy-kill-message-nolog "Empty region"))
+        (easy-kill-message-nolog "Empty region")
       (set-mark beg)
       (goto-char end)
       (activate-mark))))
@@ -377,7 +380,7 @@ party; +, full path."
 Char properties `help-echo', `shr-url' and `w3m-href-anchor' are
 inspected."
   (if (or easy-kill-mark (bounds-of-thing-at-point 'url))
-      (easy-kill-thing 'url nil t t)
+      (easy-kill-thing 'url nil t)
     (let ((get-url (lambda (text)
                      (when (stringp text)
                        (with-temp-buffer
@@ -394,7 +397,7 @@ inspected."
             (easy-kill-adjust-candidate 'url url)
             (return url)))))))
 
-;;; Handler for `list'.
+;;; Handler for `sexp' and `list'.
 
 (defvar up-list-fn)                     ; Dynamically bound
 
@@ -448,7 +451,7 @@ inspected."
           (easy-kill-adjust-candidate 'list nil new-end))))
      (t (save-excursion
           (ignore-errors (easy-kill-backward-up))
-          (easy-kill-thing 'sexp n nil t)
+          (easy-kill-thing 'sexp n t)
           (overlay-put easy-kill-candidate 'thing 'list))))))
 
 (defun easy-kill-on-list (n)
@@ -459,13 +462,13 @@ inspected."
     (let ((bounds (easy-kill-bounds-of-list n)))
       (when bounds
         (easy-kill-adjust-candidate 'list (car bounds) (cdr bounds)))))
-   (t (easy-kill-thing 'list n nil t))))
+   (t (easy-kill-thing 'list n t))))
 
 (defun easy-kill-on-sexp (n)
   (let ((nxml-sexp-element-flag t))
     (if (memq n '(+ -))
         (easy-kill-on-list n)
-      (easy-kill-thing 'sexp n nil t))))
+      (easy-kill-thing 'sexp n t))))
 
 (provide 'easy-kill)
 ;;; easy-kill.el ends here
