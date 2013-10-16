@@ -173,7 +173,8 @@ candidate property instead."
         (progn
           (move-overlay o (point) (point))
           (overlay-put o 'candidate beg)
-          (easy-kill-message-nolog "%s" beg))
+          (let ((easy-kill-inhibit-message nil))
+            (easy-kill-message-nolog "%s" beg)))
       (move-overlay o beg end))
     (cond (easy-kill-mark (easy-kill-mark-region)
                           (easy-kill-indicate-origin))
