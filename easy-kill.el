@@ -259,8 +259,11 @@ candidate property instead."
 (defun easy-kill-abort ()
   (interactive)
   (when easy-kill-mark
+    ;; The after-string may interfere with `goto-char'.
+    (overlay-put (overlay-get easy-kill-candidate 'origin-indicator)
+                 'after-string nil)
     (goto-char (overlay-get easy-kill-candidate 'origin))
-    (deactivate-mark))
+    (setq deactivate-mark t))
   (ding))
 
 (put 'easy-kill-region 'easy-kill-exit t)
