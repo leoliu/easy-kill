@@ -3,7 +3,7 @@
 ;; Copyright (C) 2013  Leo Liu
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
-;; Version: 0.8.0
+;; Version: 0.9.0
 ;; Package-Requires: ((emacs "24"))
 ;; Keywords: convenience
 ;; Created: 2013-08-12
@@ -27,6 +27,17 @@
 ;; `easy-kill' aims to be a drop-in replacement for `kill-ring-save'.
 ;;
 ;; To use: (global-set-key [remap kill-ring-save] 'easy-kill)
+
+;; `easy-mark' is similar to `easy-kill' but marks the region
+;; immediately.
+;;
+;; `easy-mark-sexp' can be a handy replacement for `mark-sexp' which
+;; allows you to use +,=/- to do list-wise expanding/shrinking.
+;;
+;; To use: (global-set-key [remap mark-sexp] 'easy-mark-sexp)
+
+;; Please send bug reports or feature requests to:
+;;      https://github.com/leoliu/easy-kill/issues
 
 ;;; Code:
 

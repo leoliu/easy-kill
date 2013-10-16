@@ -2,11 +2,14 @@
  Kill Things Easily in Emacs
 =============================
  
-Commands ``easy-kill`` and ``easy-mark`` let users kill/mark things at
-point easily.
+Provide commands (``easy-kill``, ``easy-mark`` etc.) to let users kill
+or mark things easily.
+
+easy-kill
+~~~~~~~~~
 
 ``easy-kill`` is a drop-in replacement for ``kill-ring-save``. It
-tries in order:
+saves something to ``kill-ring`` in this order:
 
 #. current region if active
 #. url at point (snarf char properties ``help-echo``, ``shr-url``,
@@ -14,7 +17,8 @@ tries in order:
 #. email at point
 #. current line
 
-Keys (customisable) immediately following ``easy-kill``:
+Immediately following ``easy-kill``, the follow keys are temporarily
+active:
 
 #. ``w`` -> word at point
 #. ``s`` -> sexp at point
@@ -28,12 +32,22 @@ Keys (customisable) immediately following ``easy-kill``:
 #. ``SPC`` -> turn selection into an active region
 #. ``C-g`` -> abort
 
-The following `screenshot <http://i.imgur.com/8TNgPly.png>`_ shows
-``M-w l`` in action:
+Any other keys exit the temporary keymap. See ``M-w l`` in action in
+`screenshot <http://i.imgur.com/8TNgPly.png>`_:
 
 .. figure:: http://i.imgur.com/8TNgPly.png
    :target: http://i.imgur.com/8TNgPly.png
    :alt: ``M-w l``
+
+easy-mark
+~~~~~~~~~
+
+``easy-mark`` is similar to ``easy-kill`` but marks the region
+immediately.
+
+``easy-mark-sexp`` can be a handy replacement for ``mark-sexp``, which
+allows +,=/- to do list-wise expanding/shrinking and marks the
+whole sexp even when in the middle of one.
 
 To Use
 ~~~~~~
@@ -45,6 +59,7 @@ To Use
 
    (require 'easy-kill)
    (global-set-key [remap kill-ring-save] 'easy-kill)
+   (global-set-key [remap mark-sexp] 'easy-mark-sexp)
 
 Extensions
 ~~~~~~~~~~
