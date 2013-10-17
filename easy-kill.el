@@ -44,6 +44,29 @@
 (eval-when-compile (require 'cl))
 (require 'thingatpt)
 
+(eval-and-compile
+  (or (fboundp 'set-temporary-overlay-map) ; new in 24.3
+      (defun set-temporary-overlay-map (map &optional keep-pred)
+        (let* ((clearfunsym (make-symbol "clear-temporary-overlay-map"))
+               (overlaysym (make-symbol "t"))
+               (alist (list (cons overlaysym map)))
+               (clearfun
+                `(lambda ()
+                   (unless ,(cond ((null keep-pred) nil)
+                                  ((eq t keep-pred)
+                                   `(eq this-command
+                                        (lookup-key ',map
+                                                    (this-command-keys-vector))))
+                                  (t `(funcall ',keep-pred)))
+                     (set ',overlaysym nil) ;Just in case.
+                     (remove-hook 'pre-command-hook ',clearfunsym)
+                     (setq emulation-mode-map-alists
+                           (delq ',alist emulation-mode-map-alists))))))
+          (set overlaysym overlaysym)
+          (fset clearfunsym clearfun)
+          (add-hook 'pre-command-hook clearfunsym)
+          (push alist emulation-mode-map-alists)))))
+
 (defcustom easy-kill-alist
   '((?w . word)
     (?s . sexp)
