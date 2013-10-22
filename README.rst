@@ -32,8 +32,10 @@ active:
 #. ``SPC`` -> turn selection into an active region
 #. ``C-g`` -> abort
 
-Any other keys exit the temporary keymap. See ``M-w l`` in action in
-`screenshot <http://i.imgur.com/8TNgPly.png>`_:
+Any other keys exit the temporary keymap and automatically save
+selection to the ``kill-ring``. See ``M-w l`` (save list at point to
+the kill ring) in action in `screenshot
+<http://i.imgur.com/8TNgPly.png>`_:
 
 .. figure:: http://i.imgur.com/8TNgPly.png
    :target: http://i.imgur.com/8TNgPly.png

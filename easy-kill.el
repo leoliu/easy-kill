@@ -228,6 +228,8 @@ candidate property instead."
                         (and (overlayp i) (delete-overlay i)))
                       (delete-overlay o)))
                   (remove-hook 'post-command-hook ',hook)))
+    ;; Run in `post-command-hook' so that exit commands can still use
+    ;; `easy-kill-candidate'.
     (add-hook 'post-command-hook hook)))
 
 (defun easy-kill-expand ()
