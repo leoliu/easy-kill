@@ -207,10 +207,10 @@ candidate property instead."
 
 (defun easy-kill-save-candidate ()
   (unless (string= (easy-kill-candidate) "")
-    ;; Do not modify the clipboard here because this may be called in
-    ;; `pre-command-hook' and will confuse `yank' if it is the next
-    ;; command. Also `easy-kill-adjust-candidate' already did the
-    ;; work.
+    ;; Don't modify the clipboard here since it is called in
+    ;; `pre-command-hook' per `easy-kill-activate-keymap' and will
+    ;; confuse `yank' if it is current command. Also
+    ;; `easy-kill-adjust-candidate' already did that.
     (let ((interprogram-cut-function nil)
           (interprogram-paste-function nil))
       (kill-new (if easy-kill-append
@@ -401,14 +401,16 @@ Temporally activate additional key bindings as follows:
   "Get `buffer-file-name' or `default-directory'.
 If N is zero, remove the directory part; -, remove the file name
 party; +, full path."
-  (let ((file (or buffer-file-name default-directory)))
-    (when file
-      (let* ((file (directory-file-name file))
-             (text (pcase n
-                     (`- (file-name-directory file))
-                     ((pred (eq 0)) (file-name-nondirectory file))
-                     (_ file))))
-        (easy-kill-adjust-candidate 'buffer-file-name text)))))
+  (if easy-kill-mark
+      (easy-kill-message-nolog "Not supported in `easy-mark'")
+    (let ((file (or buffer-file-name default-directory)))
+      (when file
+        (let* ((file (directory-file-name file))
+               (text (pcase n
+                       (`- (file-name-directory file))
+                       ((pred (eq 0)) (file-name-nondirectory file))
+                       (_ file))))
+          (easy-kill-adjust-candidate 'buffer-file-name text))))))
 
 ;;; Handler for `url'.
 
