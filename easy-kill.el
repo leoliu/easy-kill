@@ -475,8 +475,7 @@ inspected."
 
 (defun easy-kill-on-nxml-element (n)
   (let ((nxml-sexp-element-flag t)
-        (up-list-fn (when (derived-mode-p 'nxml-mode)
-                      #'nxml-up-element)))
+        (up-list-fn #'nxml-up-element))
     (cond
      ((memq n '(+ -))
       (let ((bounds (easy-kill-bounds-of-list n)))
