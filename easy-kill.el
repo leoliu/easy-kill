@@ -255,7 +255,7 @@ candidate property instead."
         (direction (if (minusp n) -1 +1))
         (start (overlay-start easy-kill-candidate))
         (end (overlay-end easy-kill-candidate)))
-    (when thing
+    (when (and thing (/= n 0))
       (let ((new-end (save-excursion
                        (goto-char end)
                        (with-demoted-errors
