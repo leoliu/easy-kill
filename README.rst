@@ -29,7 +29,7 @@ active:
 #. ``@`` -> append selection to previous kill
 #. ``C-w`` -> kill selection
 #. ``+``, ``-`` and ``0..9`` -> expand/shrink selection
-#. ``SPC`` -> turn selection into an active region
+#. ``C-SPC`` -> turn selection into an active region
 #. ``C-g`` -> abort
 
 Any other keys exit the temporary keymap and automatically save

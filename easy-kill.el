@@ -99,9 +99,9 @@ CHAR is used immediately following `easy-kill' to select THING."
     (define-key map "+" 'easy-kill-expand)
     (define-key map "=" 'easy-kill-expand)
     (define-key map "@" 'easy-kill-append)
-    (define-key map " " 'easy-kill-mark-region)
-    (define-key map "\C-w" 'easy-kill-region)
-    (define-key map "\C-g" 'easy-kill-abort)
+    (define-key map [remap set-mark-command] 'easy-kill-mark-region)
+    (define-key map [remap kill-region] 'easy-kill-region)
+    (define-key map [remap keyboard-quit] 'easy-kill-abort)
     (mapc (lambda (d)
             (define-key map (number-to-string d) 'easy-kill-digit-argument))
           (number-sequence 0 9))
@@ -345,7 +345,9 @@ candidate property instead."
        (with-demoted-errors
          (or (and (not (and (symbolp this-command)
                             (get this-command 'easy-kill-exit)))
-                  (eq this-command (lookup-key map (this-command-keys-vector))))
+                  (or (eq this-command (lookup-key map (this-single-command-keys)))
+                      (let ((cmd (key-binding (this-single-command-keys) nil t)))
+                        (command-remapping cmd nil (list map)))))
              (ignore
               (easy-kill-destroy-candidate)
               (unless (or easy-kill-mark
@@ -363,7 +365,7 @@ Temporally activate additional key bindings as follows:
   +,=/-   => expand or shrink selection;
   @       => append selection to previous kill;
   C-w     => kill selection;
-  SPC     => turn selection into an active region;
+  C-SPC   => turn selection into an active region;
   C-g     => abort;
   others  => save selection and exit."
   (interactive "p")
