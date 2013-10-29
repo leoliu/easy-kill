@@ -370,7 +370,10 @@ Temporally activate additional key bindings as follows:
   others  => save selection and exit."
   (interactive "p")
   (if (use-region-p)
-      (kill-ring-save (region-beginning) (region-end))
+      (if (fboundp 'rectangle-mark)
+          (with-no-warnings             ; new in 24.4
+            (kill-ring-save (region-beginning) (region-end) t))
+        (kill-ring-save (region-beginning) (region-end)))
     (setq easy-kill-mark nil)
     (setq easy-kill-append (eq last-command 'kill-region))
     (easy-kill-init-candidate n)
@@ -477,7 +480,7 @@ inspected."
 
 (defun easy-kill-on-nxml-element (n)
   (let ((nxml-sexp-element-flag t)
-        (up-list-fn #'nxml-up-element))
+        (up-list-fn 'nxml-up-element))
     (cond
      ((memq n '(+ -))
       (let ((bounds (easy-kill-bounds-of-list n)))
