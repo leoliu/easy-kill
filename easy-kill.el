@@ -212,10 +212,13 @@ candidate property instead."
     ;; confuse `yank' if it is current command. Also
     ;; `easy-kill-adjust-candidate' already did that.
     (let ((interprogram-cut-function nil)
-          (interprogram-paste-function nil))
+          (interprogram-paste-function nil)
+          (candidate (easy-kill-candidate)))
+      (and (eq (overlay-get easy-kill-candidate 'thing) 'line)
+           (setq candidate (concat candidate "\n")))
       (kill-new (if easy-kill-append
-                    (concat (car kill-ring) "\n" (easy-kill-candidate))
-                  (easy-kill-candidate))
+                    (concat (car kill-ring) candidate)
+                  candidate)
                 easy-kill-append))
     t))
 
