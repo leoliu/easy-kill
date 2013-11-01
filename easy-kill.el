@@ -126,13 +126,6 @@ Do nothing if `easy-kill-inhibit-message' is non-nil."
     (let (message-log-max)
       (apply 'message format-string args))))
 
-(defun easy-kill-strip-trailing (s)
-  (cond ((stringp s)
-         (if (string-match "[ \t\f\r\n]*\\'" s)
-             (substring s 0 (match-beginning 0))
-           (error "`string-match' failed in `easy-kill-strip-trailing'")))
-        (t "")))
-
 (defvar easy-kill-candidate nil)
 (defvar easy-kill-append nil)
 (defvar easy-kill-mark nil)
@@ -176,13 +169,13 @@ Do nothing if `easy-kill-inhibit-message' is non-nil."
 If the overlay specified by variable `easy-kill-candidate' has
 non-zero length, it is the string covered by the overlay.
 Otherwise, it is the value of the overlay's candidate property."
-  (easy-kill-strip-trailing
-   (with-current-buffer (overlay-buffer easy-kill-candidate)
-     (if (/= (overlay-start easy-kill-candidate)
-             (overlay-end easy-kill-candidate))
-         (filter-buffer-substring (overlay-start easy-kill-candidate)
-                                  (overlay-end easy-kill-candidate))
-       (overlay-get easy-kill-candidate 'candidate)))))
+  (with-current-buffer (overlay-buffer easy-kill-candidate)
+    (or (if (/= (overlay-start easy-kill-candidate)
+                (overlay-end easy-kill-candidate))
+            (filter-buffer-substring (overlay-start easy-kill-candidate)
+                                     (overlay-end easy-kill-candidate))
+          (overlay-get easy-kill-candidate 'candidate))
+        "")))
 
 (defun easy-kill-adjust-candidate (thing &optional beg end)
   "Adjust kill candidate to THING, BEG, END.
@@ -214,7 +207,7 @@ candidate property instead."
     (let ((interprogram-cut-function nil)
           (interprogram-paste-function nil))
       (kill-new (if easy-kill-append
-                    (concat (car kill-ring) "\n" (easy-kill-candidate))
+                    (concat (car kill-ring) (easy-kill-candidate))
                   (easy-kill-candidate))
                 easy-kill-append))
     t))
