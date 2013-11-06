@@ -145,11 +145,15 @@ Do nothing if `easy-kill-inhibit-message' is non-nil."
         (overlay-put i 'as (propertize " " 'face 'easy-kill-origin))
         (overlay-put o 'origin-indicator i)))
     (setq easy-kill-candidate o)
-    (let ((easy-kill-inhibit-message t))
-      (dolist (thing easy-kill-try-things)
-        (easy-kill-thing thing n)
-        (or (string= (easy-kill-candidate) "")
-            (return))))
+    (save-restriction
+      ;; Work around http://debbugs.gnu.org/15808; not needed in 24.4.
+      (narrow-to-region (max (point-min) (- (point) 1000))
+                        (min (point-max) (+ (point) 1000)))
+      (let ((easy-kill-inhibit-message t))
+        (dolist (thing easy-kill-try-things)
+          (easy-kill-thing thing n)
+          (or (string= (easy-kill-candidate) "")
+              (return)))))
     o))
 
 (defun easy-kill-indicate-origin ()
