@@ -25,6 +25,7 @@ active:
 #. ``f`` -> file at point
 #. ``l`` -> list at point
 #. ``d`` -> defun at point
+#. ``D`` -> defun-name; works even when in a diff hunk
 #. ``b`` -> ``buffer-file-name`` or ``default-directory``
 #. ``@`` -> append selection to previous kill
 #. ``C-w`` -> kill selection

@@ -74,7 +74,8 @@
     (?f . filename)
     (?d . defun)
     (?e . line)
-    (?b . buffer-file-name))
+    (?b . buffer-file-name)
+    (?D . defun-name))
   "A list of (CHAR . THING).
 CHAR is used immediately following `easy-kill' to select THING."
   :type '(repeat (cons character symbol))
@@ -413,6 +414,17 @@ party; +, full path."
                        ((pred (eq 0)) (file-name-nondirectory file))
                        (_ file))))
           (easy-kill-adjust-candidate 'buffer-file-name text))))))
+
+;;; Handler for `defun-name'.
+
+(defun easy-kill-on-defun-name (_n)
+  "Get current defun name."
+  (if easy-kill-mark
+      (easy-kill-message-nolog "Not supported in `easy-mark'")
+    (let ((defun-name (add-log-current-defun)))
+      (if defun-name
+          (easy-kill-adjust-candidate 'defun-name defun-name)
+        (easy-kill-message-nolog "No `defun-name' at point")))))
 
 ;;; Handler for `url'.
 
