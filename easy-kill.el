@@ -331,6 +331,8 @@ candidate property instead."
   (interactive)
   (setq easy-kill-append t)
   (when (easy-kill-save-candidate)
+    (and interprogram-cut-function
+         (funcall interprogram-cut-function (car kill-ring)))
     (setq deactivate-mark t)
     (easy-kill-message-nolog "Appended")))
 
