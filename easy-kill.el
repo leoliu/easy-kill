@@ -3,7 +3,7 @@
 ;; Copyright (C) 2013  Leo Liu
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
-;; Version: 0.9.0
+;; Version: 0.9.1
 ;; Package-Requires: ((emacs "24"))
 ;; Keywords: convenience
 ;; Created: 2013-08-12
@@ -29,12 +29,10 @@
 ;; To use: (global-set-key [remap kill-ring-save] 'easy-kill)
 
 ;; `easy-mark' is similar to `easy-kill' but marks the region
-;; immediately.
+;; immediately. It can be a handy replacement for `mark-sexp' allowing
+;; `+'/`-' to do list-wise expanding/shrinking.
 ;;
-;; `easy-mark-sexp' can be a handy replacement for `mark-sexp' which
-;; allows you to use +,=/- to do list-wise expanding/shrinking.
-;;
-;; To use: (global-set-key [remap mark-sexp] 'easy-mark-sexp)
+;; To use: (global-set-key [remap mark-sexp] 'easy-mark)
 
 ;; Please send bug reports or feature requests to:
 ;;      https://github.com/leoliu/easy-kill/issues
@@ -83,6 +81,11 @@ CHAR is used immediately following `easy-kill' to select THING."
 
 (defcustom easy-kill-try-things '(url email line)
   "A list of things for `easy-kill' to try."
+  :type '(repeat symbol)
+  :group 'killing)
+
+(defcustom easy-mark-try-things '(url email sexp)
+  "A list of things for `easy-mark' to try."
   :type '(repeat symbol)
   :group 'killing)
 
@@ -382,18 +385,17 @@ Temporally activate additional key bindings as follows:
     (easy-kill-activate-keymap)))
 
 ;;;###autoload
-(defun easy-mark (&optional n)
-  "Like `easy-kill' (which see) but for marking."
-  (interactive "p")
-  (setq easy-kill-mark t)
-  (easy-kill-init-candidate n)
-  (easy-kill-activate-keymap))
+(defalias 'easy-mark-sexp 'easy-mark
+  "Use `easy-mark' instead. The alias may be removed in future.")
 
 ;;;###autoload
-(defun easy-mark-sexp (&optional n)
+(defun easy-mark (&optional n)
+  "Similar to `easy-kill' (which see) but for marking."
   (interactive "p")
-  (let ((easy-kill-try-things '(sexp)))
-    (easy-mark n)
+  (let ((easy-kill-try-things easy-mark-try-things))
+    (setq easy-kill-mark t)
+    (easy-kill-init-candidate n)
+    (easy-kill-activate-keymap)
     (unless (overlay-get easy-kill-candidate 'thing)
       (overlay-put easy-kill-candidate 'thing 'sexp)
       (easy-kill-thing 'sexp n))))

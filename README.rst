@@ -2,40 +2,38 @@
  Kill Things Easily in Emacs
 =============================
  
-Provide commands (``easy-kill``, ``easy-mark`` etc.) to let users kill
-or mark things easily.
+Provide commands ``easy-kill`` and ``easy-mark`` to let users kill or
+mark things easily.
 
 easy-kill
 ~~~~~~~~~
 
-``easy-kill`` is a drop-in replacement for ``kill-ring-save``. It
-saves something to ``kill-ring`` in this order:
+``easy-kill`` is a drop-in replacement for ``kill-ring-save``. To Use:
+::
 
-#. current region if active
-#. url at point (snarf char properties ``help-echo``, ``shr-url``,
-   ``w3m-href-anchor`` etc.)
-#. email at point
-#. current line
+   (global-set-key [remap kill-ring-save] 'easy-kill)
 
-Immediately following ``easy-kill``, the follow keys are temporarily
-active:
+After this configuration, ``M-w`` serves as both a command and a
+prefix key for other commands. ``M-w`` alone saves in the order of
+active region, url, email and finally current line. As a prefix key:
 
-#. ``w`` -> word at point
-#. ``s`` -> sexp at point
-#. ``f`` -> file at point
-#. ``l`` -> list at point
-#. ``d`` -> defun at point
-#. ``D`` -> defun-name; works even when in a diff hunk
-#. ``b`` -> ``buffer-file-name`` or ``default-directory``
-#. ``@`` -> append selection to previous kill
-#. ``C-w`` -> kill selection
-#. ``+``, ``-`` and ``0..9`` -> expand/shrink selection
-#. ``C-SPC`` -> turn selection into an active region
-#. ``C-g`` -> abort
+#. ``M-w w``: save word at point
+#. ``M-w s``: save sexp at point
+#. ``M-w f``: save file at point
+#. ``M-w l``: save list at point
+#. ``M-w d``: save defun at point
+#. ``M-w D``: save defun-name; works even when in a diff hunk
+#. ``M-w b``: save ``buffer-file-name`` or ``default-directory``
 
-Any other keys exit the temporary keymap and automatically save
-selection to the ``kill-ring``. See ``M-w l`` (save list at point to
-the kill ring) in action in `screenshot
+The following keys modify the selection:
+
+#. ``@``: append selection to previous kill and exit
+#. ``C-w``: kill selection and exit
+#. ``+``, ``-`` and ``0..9``: expand/shrink selection
+#. ``C-SPC``: turn selection into an active region
+#. ``C-g``: abort
+
+See ``M-w l`` (save list at point) in action in `screenshot
 <http://i.imgur.com/8TNgPly.png>`_:
 
 .. figure:: http://i.imgur.com/8TNgPly.png
@@ -46,24 +44,18 @@ easy-mark
 ~~~~~~~~~
 
 ``easy-mark`` is similar to ``easy-kill`` but marks the region
-immediately.
+immediately. It can be a handy replacement for ``mark-sexp`` allowing
+``+``/``-`` to do list-wise expanding/shrinking and marks the whole
+sexp even when in the middle of one. ::
 
-``easy-mark-sexp`` can be a handy replacement for ``mark-sexp``, which
-allows +,=/- to do list-wise expanding/shrinking and marks the
-whole sexp even when in the middle of one.
+   (global-set-key [remap mark-sexp] 'easy-mark)
 
-To Use
-~~~~~~
+Install
+~~~~~~~
 
 ``easy-kill`` is available on `MELPA
 <http://melpa.milkbox.net/#/easy-kill>`_.
-
-::
-
-   (require 'easy-kill)
-   (global-set-key [remap kill-ring-save] 'easy-kill)
-   (global-set-key [remap mark-sexp] 'easy-mark-sexp)
-
+   
 Extensions
 ~~~~~~~~~~
 
