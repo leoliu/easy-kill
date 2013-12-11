@@ -373,7 +373,7 @@ Temporally activate additional key bindings as follows:
   others  => save selection and exit."
   (interactive "p")
   (if (use-region-p)
-      (if (fboundp 'rectangle-mark)
+      (if (fboundp 'rectangle-mark-mode)
           (with-no-warnings             ; new in 24.4
             (kill-ring-save (region-beginning) (region-end) t))
         (kill-ring-save (region-beginning) (region-end)))
