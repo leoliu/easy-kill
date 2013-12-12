@@ -345,18 +345,22 @@ candidate property instead."
      map
      (lambda ()
        ;; Prevent any error from activating the keymap forever.
-       (with-demoted-errors
-         (or (and (not (and (symbolp this-command)
-                            (get this-command 'easy-kill-exit)))
-                  (or (eq this-command (lookup-key map (this-single-command-keys)))
-                      (let ((cmd (key-binding (this-single-command-keys) nil t)))
-                        (command-remapping cmd nil (list map)))))
-             (ignore
-              (easy-kill-destroy-candidate)
-              (unless (or easy-kill-mark
-                          (and (symbolp this-command)
-                               (get this-command 'easy-kill-exit)))
-                (easy-kill-save-candidate)))))))))
+       (condition-case err
+           (or (and (not (and (symbolp this-command)
+                              (get this-command 'easy-kill-exit)))
+                    (or (eq this-command
+                            (lookup-key map (this-single-command-keys)))
+                        (let ((cmd (key-binding
+                                    (this-single-command-keys) nil t)))
+                          (command-remapping cmd nil (list map)))))
+               (ignore
+                (easy-kill-destroy-candidate)
+                (unless (or easy-kill-mark
+                            (and (symbolp this-command)
+                                 (get this-command 'easy-kill-exit)))
+                  (easy-kill-save-candidate))))
+         (error (message "%s:%s" this-command (error-message-string err))
+                nil))))))
 
 ;;;###autoload
 (defun easy-kill (&optional n)
