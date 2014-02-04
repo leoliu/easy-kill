@@ -1,6 +1,6 @@
 ;;; easy-kill.el --- kill things easily              -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2013  Leo Liu
+;; Copyright (C) 2013-2014  Leo Liu
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
 ;; Version: 0.9.1
@@ -411,7 +411,7 @@ Temporally activate additional key bindings as follows:
 (defun easy-kill-on-buffer-file-name (n)
   "Get `buffer-file-name' or `default-directory'.
 If N is zero, remove the directory part; -, remove the file name
-party; +, full path."
+part; +, full path."
   (if easy-kill-mark
       (easy-kill-message-nolog "Not supported in `easy-mark'")
     (let ((file (or buffer-file-name default-directory)))
@@ -472,14 +472,14 @@ inspected."
             (goto-char (nth 8 ppss))))
       (scan-error (and (nth 3 ppss) (goto-char (nth 8 ppss)))))))
 
-(defun easy-kill-backward-down (point &optional bound)
+(defun easy-kill-forward-down (point &optional bound)
   (condition-case nil
       (progn
         (easy-kill-backward-up)
         (backward-prefix-chars)
         (if (and (or (not bound) (> (point) bound))
                  (/= point (point)))
-            (easy-kill-backward-down (point) bound)
+            (easy-kill-forward-down (point) bound)
           (goto-char point)))
     (scan-error (goto-char point))))
 
@@ -488,7 +488,7 @@ inspected."
     (pcase n
       (`+ (goto-char (overlay-start easy-kill-candidate))
           (easy-kill-backward-up))
-      (`- (easy-kill-backward-down
+      (`- (easy-kill-forward-down
            (point) (overlay-start easy-kill-candidate)))
       (_ (error "Unsupported argument `%s'" n)))
     (bounds-of-thing-at-point 'sexp)))
