@@ -43,27 +43,31 @@
 (require 'thingatpt)
 
 (eval-and-compile
-  (or (fboundp 'set-temporary-overlay-map) ; new in 24.3
-      (defun set-temporary-overlay-map (map &optional keep-pred)
-        (let* ((clearfunsym (make-symbol "clear-temporary-overlay-map"))
-               (overlaysym (make-symbol "t"))
-               (alist (list (cons overlaysym map)))
-               (clearfun
-                `(lambda ()
-                   (unless ,(cond ((null keep-pred) nil)
-                                  ((eq t keep-pred)
-                                   `(eq this-command
-                                        (lookup-key ',map
-                                                    (this-command-keys-vector))))
-                                  (t `(funcall ',keep-pred)))
-                     (set ',overlaysym nil) ;Just in case.
-                     (remove-hook 'pre-command-hook ',clearfunsym)
-                     (setq emulation-mode-map-alists
-                           (delq ',alist emulation-mode-map-alists))))))
-          (set overlaysym overlaysym)
-          (fset clearfunsym clearfun)
-          (add-hook 'pre-command-hook clearfunsym)
-          (push alist emulation-mode-map-alists)))))
+  (cond
+   ((fboundp 'set-transient-map) nil)
+   ((fboundp 'set-temporary-overlay-map) ; new in 24.3
+    (defalias 'set-transient-map 'set-temporary-overlay-map))
+   (t
+    (defun set-transient-map (map &optional keep-pred)
+      (let* ((clearfunsym (make-symbol "clear-temporary-overlay-map"))
+             (overlaysym (make-symbol "t"))
+             (alist (list (cons overlaysym map)))
+             (clearfun
+              `(lambda ()
+                 (unless ,(cond ((null keep-pred) nil)
+                                ((eq t keep-pred)
+                                 `(eq this-command
+                                      (lookup-key ',map
+                                                  (this-command-keys-vector))))
+                                (t `(funcall ',keep-pred)))
+                   (set ',overlaysym nil) ;Just in case.
+                   (remove-hook 'pre-command-hook ',clearfunsym)
+                   (setq emulation-mode-map-alists
+                         (delq ',alist emulation-mode-map-alists))))))
+        (set overlaysym overlaysym)
+        (fset clearfunsym clearfun)
+        (add-hook 'pre-command-hook clearfunsym)
+        (push alist emulation-mode-map-alists))))))
 
 (defcustom easy-kill-alist
   '((?w . word)
@@ -341,7 +345,7 @@ candidate property instead."
 
 (defun easy-kill-activate-keymap ()
   (let ((map (easy-kill-map)))
-    (set-temporary-overlay-map
+    (set-transient-map
      map
      (lambda ()
        ;; Prevent any error from activating the keymap forever.
@@ -515,10 +519,42 @@ inspected."
           (easy-kill-thing 'sexp n t)
           (overlay-put easy-kill-candidate 'thing 'list))))))
 
+(defun easy-kill-find-js2-node (beg end &optional inner)
+  (eval-and-compile (require 'js2-mode))
+  (let* ((node (js2-node-at-point))
+         (last-node node))
+    (while (progn
+             (if (or (js2-ast-root-p node)
+                     (and (<= (js2-node-abs-pos node) beg)
+                          (>= (js2-node-abs-end node) end)
+                          (or inner
+                              (not (and (= (js2-node-abs-pos node) beg)
+                                        (= (js2-node-abs-end node) end))))))
+                 nil
+               (setq last-node node
+                     node (js2-node-parent node))
+               t)))
+    (if inner last-node node)))
+
+(defun easy-kill-on-js2-node (n)
+  (let ((node (pcase n
+                ((or `+ `-)
+                 (easy-kill-find-js2-node (overlay-start easy-kill-candidate)
+                                          (overlay-end easy-kill-candidate)
+                                          (eq n '-)))
+                ((guard (eq 'list (overlay-get easy-kill-candidate 'thing)))
+                 (error "List forward not supported in js2-mode"))
+                (_ (js2-node-at-point)))))
+    (easy-kill-adjust-candidate 'list
+                                (js2-node-abs-pos node)
+                                (js2-node-abs-end node))))
+
 (defun easy-kill-on-list (n)
   (cond
    ((derived-mode-p 'nxml-mode)
     (easy-kill-on-nxml-element n))
+   ((derived-mode-p 'js2-mode)
+    (easy-kill-on-js2-node n))
    ((memq n '(+ -))
     (let ((bounds (easy-kill-bounds-of-list n)))
       (when bounds
@@ -526,10 +562,9 @@ inspected."
    (t (easy-kill-thing 'list n t))))
 
 (defun easy-kill-on-sexp (n)
-  (let ((nxml-sexp-element-flag t))
-    (if (memq n '(+ -))
-        (easy-kill-on-list n)
-      (easy-kill-thing 'sexp n t))))
+  (if (memq n '(+ -))
+      (easy-kill-on-list n)
+    (easy-kill-thing 'sexp n t)))
 
 (provide 'easy-kill)
 ;;; easy-kill.el ends here
