@@ -4,7 +4,7 @@
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
 ;; Version: 0.9.1
-;; Package-Requires: ((emacs "24"))
+;; Package-Requires: ((emacs "24") (cl-lib "0.5"))
 ;; Keywords: convenience
 ;; Created: 2013-08-12
 ;; URL: https://github.com/leoliu/easy-kill
@@ -39,7 +39,7 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
+(require 'cl-lib)
 (require 'thingatpt)
 
 (eval-and-compile
@@ -158,10 +158,10 @@ Do nothing if `easy-kill-inhibit-message' is non-nil."
       (narrow-to-region (max (point-min) (- (point) 1000))
                         (min (point-max) (+ (point) 1000)))
       (let ((easy-kill-inhibit-message t))
-        (dolist (thing easy-kill-try-things)
+        (cl-dolist (thing easy-kill-try-things)
           (easy-kill-thing thing n)
           (or (string= (easy-kill-candidate) "")
-              (return)))))
+              (cl-return)))))
     o))
 
 (defun easy-kill-indicate-origin ()
@@ -257,18 +257,18 @@ candidate property instead."
 ;; helper for `easy-kill-thing'.
 (defun easy-kill-thing-forward (n)
   (let ((thing (overlay-get easy-kill-candidate 'thing))
-        (direction (if (minusp n) -1 +1))
+        (direction (if (cl-minusp n) -1 +1))
         (start (overlay-start easy-kill-candidate))
         (end (overlay-end easy-kill-candidate)))
     (when (and thing (/= n 0))
       (let ((new-end (save-excursion
                        (goto-char end)
                        (with-demoted-errors
-                         (dotimes (_ (abs n))
+                         (cl-dotimes (_ (abs n))
                            (forward-thing thing direction)
                            (when (<= (point) start)
                              (forward-thing thing 1)
-                             (return))))
+                             (cl-return))))
                        (point))))
         (when (/= end new-end)
           (easy-kill-adjust-candidate thing nil new-end)
@@ -446,21 +446,20 @@ Char properties `help-echo', `shr-url' and `w3m-href-anchor' are
 inspected."
   (if (or easy-kill-mark (bounds-of-thing-at-point 'url))
       (easy-kill-thing 'url nil t)
-    (let ((get-url (lambda (text)
-                     (when (stringp text)
-                       (with-temp-buffer
-                         (insert text)
-                         (and (bounds-of-thing-at-point 'url)
-                              (thing-at-point 'url)))))))
-      (dolist (p '(help-echo shr-url w3m-href-anchor))
+    (cl-labels ((get-url (text)
+                         (when (stringp text)
+                           (with-temp-buffer
+                             (insert text)
+                             (and (bounds-of-thing-at-point 'url)
+                                  (thing-at-point 'url))))))
+      (cl-dolist (p '(help-echo shr-url w3m-href-anchor))
         (pcase-let* ((`(,text . ,ov)
                       (get-char-property-and-overlay (point) p))
-                     (url (or (funcall get-url text)
-                              (funcall get-url
-                                       (and ov (overlay-get ov p))))))
+                     (url (or (get-url text)
+                              (get-url (and ov (overlay-get ov p))))))
           (when url
             (easy-kill-adjust-candidate 'url url)
-            (return url)))))))
+            (cl-return url)))))))
 
 ;;; Handler for `sexp' and `list'.
 
