@@ -1,11 +1,11 @@
-;;; easy-kill.el --- kill things easily              -*- lexical-binding: t; -*-
+;;; easy-kill.el --- kill & mark things easily       -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2013-2014  Leo Liu
+;; Copyright (C) 2013-2014  Free Software Foundation, Inc.
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
 ;; Version: 0.9.1
 ;; Package-Requires: ((emacs "24") (cl-lib "0.5"))
-;; Keywords: convenience
+;; Keywords: killing, convenience
 ;; Created: 2013-08-12
 ;; URL: https://github.com/leoliu/easy-kill
 
@@ -76,8 +76,7 @@
     (?f . filename)
     (?d . defun)
     (?e . line)
-    (?b . buffer-file-name)
-    (?D . defun-name))
+    (?b . buffer-file-name))
   "A list of (CHAR . THING).
 CHAR is used immediately following `easy-kill' to select THING."
   :type '(repeat (cons character symbol))
@@ -127,7 +126,7 @@ CHAR is used immediately following `easy-kill' to select THING."
 
 (defvar easy-kill-inhibit-message nil)
 
-(defun easy-kill-message-nolog (format-string &rest args)
+(defun easy-kill-echo (format-string &rest args)
   "Same as `message' except not writing to *Messages* buffer.
 Do nothing if `easy-kill-inhibit-message' is non-nil."
   (unless easy-kill-inhibit-message
@@ -202,7 +201,7 @@ candidate property instead."
           (move-overlay o (point) (point))
           (overlay-put o 'candidate beg)
           (let ((easy-kill-inhibit-message nil))
-            (easy-kill-message-nolog "%s" beg)))
+            (easy-kill-echo "%s" beg)))
       (move-overlay o beg end))
     (cond (easy-kill-mark (easy-kill-mark-region)
                           (easy-kill-indicate-origin))
@@ -292,12 +291,12 @@ candidate property instead."
       (easy-kill-thing-forward (pcase n
                                  (`+ 1)
                                  (`- -1)
-                                 (n n))))
-     (t (let ((bounds (bounds-of-thing-at-point thing)))
-          (if (not bounds)
-              (easy-kill-message-nolog "No `%s'" thing)
-            (easy-kill-adjust-candidate thing (car bounds) (cdr bounds))
-            (easy-kill-thing-forward (1- n))))))
+                                 (_ n))))
+     (t (pcase (bounds-of-thing-at-point thing)
+          (`nil (easy-kill-echo "No `%s'" thing))
+          (`(,start . ,end)
+           (easy-kill-adjust-candidate thing start end)
+           (easy-kill-thing-forward (1- n))))))
     (when easy-kill-mark
       (easy-kill-adjust-candidate (overlay-get easy-kill-candidate 'thing)))))
 
@@ -319,7 +318,7 @@ candidate property instead."
   (let ((beg (overlay-start easy-kill-candidate))
         (end (overlay-end easy-kill-candidate)))
     (if (= beg end)
-        (easy-kill-message-nolog "Empty region")
+        (easy-kill-echo "Empty region")
       (kill-region beg end))))
 
 (put 'easy-kill-mark-region 'easy-kill-exit t)
@@ -328,7 +327,7 @@ candidate property instead."
   (let ((beg (overlay-start easy-kill-candidate))
         (end (overlay-end easy-kill-candidate)))
     (if (= beg end)
-        (easy-kill-message-nolog "Empty region")
+        (easy-kill-echo "Empty region")
       (set-mark beg)
       (goto-char end)
       (activate-mark))))
@@ -341,7 +340,7 @@ candidate property instead."
     (and interprogram-cut-function
          (funcall interprogram-cut-function (car kill-ring)))
     (setq deactivate-mark t)
-    (easy-kill-message-nolog "Appended")))
+    (easy-kill-echo "Appended")))
 
 (defun easy-kill-activate-keymap ()
   (let ((map (easy-kill-map)))
@@ -381,15 +380,15 @@ Temporally activate additional key bindings as follows:
   others  => save selection and exit."
   (interactive "p")
   (if (use-region-p)
-      (if (fboundp 'rectangle-mark-mode)
-          (with-no-warnings             ; new in 24.4
+      (if (fboundp 'rectangle-mark-mode) ; New in 24.4
+          (with-no-warnings
             (kill-ring-save (region-beginning) (region-end) t))
         (kill-ring-save (region-beginning) (region-end)))
     (setq easy-kill-mark nil)
     (setq easy-kill-append (eq last-command 'kill-region))
     (easy-kill-init-candidate n)
     (when (zerop (buffer-size))
-      (easy-kill-message-nolog "Warn: `easy-kill' activated in empty buffer"))
+      (easy-kill-echo "Warn: `easy-kill' activated in empty buffer"))
     (easy-kill-activate-keymap)))
 
 ;;;###autoload
@@ -417,7 +416,7 @@ Temporally activate additional key bindings as follows:
 If N is zero, remove the directory part; -, remove the file name
 part; +, full path."
   (if easy-kill-mark
-      (easy-kill-message-nolog "Not supported in `easy-mark'")
+      (easy-kill-echo "Not supported in `easy-mark'")
     (let ((file (or buffer-file-name default-directory)))
       (when file
         (let* ((file (directory-file-name file))
@@ -432,11 +431,11 @@ part; +, full path."
 (defun easy-kill-on-defun-name (_n)
   "Get current defun name."
   (if easy-kill-mark
-      (easy-kill-message-nolog "Not supported in `easy-mark'")
+      (easy-kill-echo "Not supported in `easy-mark'")
     (let ((defun-name (add-log-current-defun)))
       (if defun-name
           (easy-kill-adjust-candidate 'defun-name defun-name)
-        (easy-kill-message-nolog "No `defun-name' at point")))))
+        (easy-kill-echo "No `defun-name' at point")))))
 
 ;;; Handler for `url'.
 
