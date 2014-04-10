@@ -1,7 +1,7 @@
-=============================
- Kill Things Easily in Emacs
-=============================
-
+====================================
+ Kill & Mark Things Easily in Emacs
+====================================
+ 
 Provide commands ``easy-kill`` and ``easy-mark`` to let users kill or
 mark things easily.
 
