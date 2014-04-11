@@ -134,6 +134,13 @@ Do nothing if `easy-kill-inhibit-message' is non-nil."
     (let (message-log-max)
       (apply 'message format-string args))))
 
+(defun easy-kill-interprogram-cut (text)
+  "Make non-empty TEXT available to other programs."
+  (cl-check-type text string)
+  (and interprogram-cut-function
+       (not (equal text ""))
+       (funcall interprogram-cut-function text)))
+
 (defvar easy-kill-candidate nil)
 (defvar easy-kill-append nil)
 (defvar easy-kill-mark nil)
@@ -215,20 +222,17 @@ Otherwise, it is the value of the overlay's candidate property."
 If BEG is a string, shrink the overlay to zero length and set its
 candidate property instead."
   (setf (easy-kill-get thing) thing)
-  (let* ((beg (or beg (easy-kill-get start)))
-         (end (or end (easy-kill-get end))))
-    (if (stringp beg)
-        (progn
-          (setf (easy-kill-get bounds) (cons (point) (point)))
-          (setf (easy-kill-get candidate) beg)
-          (let ((easy-kill-inhibit-message nil))
-            (easy-kill-echo "%s" beg)))
-      (setf (easy-kill-get bounds) (cons beg end)))
-    (cond (easy-kill-mark (easy-kill-mark-region)
-                          (easy-kill-indicate-origin))
-          ((and interprogram-cut-function
-                (not (string= (easy-kill-candidate) "")))
-           (funcall interprogram-cut-function (easy-kill-candidate))))))
+  (cond ((stringp beg)
+         (setf (easy-kill-get bounds) (cons (point) (point)))
+         (setf (easy-kill-get candidate) beg)
+         (let ((easy-kill-inhibit-message nil))
+           (easy-kill-echo "%s" beg)))
+        (t
+         (setf (easy-kill-get bounds) (cons (or beg (easy-kill-get start))
+                                            (or end (easy-kill-get end))))))
+  (cond (easy-kill-mark (easy-kill-mark-region)
+                        (easy-kill-indicate-origin))
+        (t (easy-kill-interprogram-cut (easy-kill-candidate)))))
 
 (defun easy-kill-save-candidate ()
   (unless (string= (easy-kill-candidate) "")
@@ -355,8 +359,7 @@ candidate property instead."
   (interactive)
   (setq easy-kill-append t)
   (when (easy-kill-save-candidate)
-    (and interprogram-cut-function
-         (funcall interprogram-cut-function (car kill-ring)))
+    (easy-kill-interprogram-cut (car kill-ring))
     (setq deactivate-mark t)
     (easy-kill-echo "Appended")))
 
