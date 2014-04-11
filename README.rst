@@ -83,6 +83,15 @@ convention, or by defining new functions named like
 ``easy-kill-on-THING-NAME``. See ``easy-kill-on-buffer-file-name`` and
 ``easy-kill-on-url`` for examples.
 
+NEWS
+~~~~
+
+0.9.2
++++++
+
+#. Mouse over the selection now shows description.
+#. Echo js2 node name
+
 Bugs
 ~~~~
 

@@ -166,13 +166,19 @@ Use `setf' to change property value."
     (`end    '(overlay-end easy-kill-candidate))
     (`bounds '(easy-kill--bounds))
     (`buffer '(overlay-buffer easy-kill-candidate))
+    (`properties '(append (list 'start (easy-kill-get start))
+                          (list 'end (easy-kill-get end))
+                          (overlay-properties easy-kill-candidate)))
     (_       `(overlay-get easy-kill-candidate ',prop))))
 
 (defun easy-kill-init-candidate (n)
+  ;; Manipulate `easy-kill-candidate' directly during initialisation;
+  ;; should use `easy-kill-get' elsewhere.
   (let ((o (make-overlay (point) (point))))
     (unless easy-kill-mark
       (overlay-put o 'face 'easy-kill-selection))
     (overlay-put o 'origin (point))
+    (overlay-put o 'help-echo #'easy-kill-describe-candidate)
     ;; Use higher priority to avoid shadowing by, for example,
     ;; `hl-line-mode'.
     (overlay-put o 'priority 999)
@@ -216,6 +222,18 @@ Otherwise, it is the value of the overlay's candidate property."
           (`(,_x . ,_x) (easy-kill-get candidate))
           (`(,beg . ,end) (filter-buffer-substring beg end)))
         "")))
+
+(defun easy-kill-describe-candidate (&rest _)
+  "Return a string that describes current kill candidate."
+  (let* ((props (cl-loop for k in '(thing start end origin)
+                         with all = (easy-kill-get properties)
+                         ;; Allow describe-PROP to provide customised
+                         ;; description.
+                         for dk = (intern-soft (format "describe-%s" k))
+                         for v = (or (plist-get all dk) (plist-get all k))
+                         when v collect (format "%s:\t%s" k v)))
+         (txt (mapconcat #'identity props "\n")))
+    (format "cmd:\t%s\n%s" (if easy-kill-mark "easy-mark" "easy-kill") txt)))
 
 (defun easy-kill-adjust-candidate (thing &optional beg end)
   "Adjust kill candidate to THING, BEG, END.
@@ -563,7 +581,10 @@ inspected."
                 (_ (js2-node-at-point)))))
     (easy-kill-adjust-candidate 'list
                                 (js2-node-abs-pos node)
-                                (js2-node-abs-end node))))
+                                (js2-node-abs-end node))
+    (setf (easy-kill-get describe-thing)
+          (format "list (%s)" (js2-node-short-name node)))
+    (easy-kill-echo "%s" (js2-node-short-name node))))
 
 (defun easy-kill-on-list (n)
   (cond
