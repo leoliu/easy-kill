@@ -90,7 +90,11 @@ NEWS
 +++++
 
 #. Mouse over the selection now shows description.
-#. Echo js2 node name
+#. Echo js2 node name.
+#. Append now uses sensible separator (customisable via
+   ``easy-kill-alist``).
+#. The format of easy-kill-alist has changed. The old ``(CHAR .
+   THING)`` format is still supported but may be removed in future.
 
 Bugs
 ~~~~

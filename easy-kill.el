@@ -71,16 +71,22 @@
         (push alist emulation-mode-map-alists))))))
 
 (defcustom easy-kill-alist
-  '((?w . word)
-    (?s . sexp)
-    (?l . list)
-    (?f . filename)
-    (?d . defun)
-    (?e . line)
-    (?b . buffer-file-name))
-  "A list of (CHAR . THING).
-CHAR is used immediately following `easy-kill' to select THING."
-  :type '(repeat (cons character symbol))
+  '((?w word     " ")
+    (?s sexp     "\n")
+    (?l list     "\n")
+    (?f filename "\n")
+    (?d defun    "\n\n")
+    (?e line     "\n")
+    (?b buffer-file-name))
+  "A list of (CHAR THING APPEND).
+CHAR is used immediately following `easy-kill' to select THING.
+APPEND is optional and if non-nil specifies the separator (a
+string) for appending current selection to previous kill.
+
+Note: each element can also be (CHAR . THING) but this is
+deprecated."
+  :type '(repeat (list character symbol
+                       (choice string (const :tag "None" nil))))
   :group 'killing)
 
 (defcustom easy-kill-try-things '(url email line)
@@ -133,6 +139,14 @@ Do nothing if `easy-kill-inhibit-message' is non-nil."
   (unless easy-kill-inhibit-message
     (let (message-log-max)
       (apply 'message format-string args))))
+
+(defun easy-kill-trim (s &optional how)
+  (let ((wchars "[ \t\n\r\f\v]*"))
+    (pcase how
+      (`left (and (string-match (concat "\\`" wchars) s)
+                  (substring s (match-end 0))))
+      (`right (substring s 0 (string-match-p (concat wchars "\\'") s)))
+      (_ (easy-kill-trim (easy-kill-trim s 'left) 'right)))))
 
 (defun easy-kill-interprogram-cut (text)
   "Make non-empty TEXT available to other programs."
@@ -260,8 +274,16 @@ candidate property instead."
     ;; `easy-kill-adjust-candidate' already did that.
     (let ((interprogram-cut-function nil)
           (interprogram-paste-function nil))
-      (kill-new (if easy-kill-append
-                    (concat (car kill-ring) (easy-kill-candidate))
+      (kill-new (if (and easy-kill-append kill-ring)
+                    (cl-labels ((join (x sep y)
+                                      (if sep (concat (easy-kill-trim x 'right)
+                                                      sep
+                                                      (easy-kill-trim y 'left))
+                                        (concat x y))))
+                      (join (car kill-ring)
+                            (nth 2 (cl-rassoc (easy-kill-get thing)
+                                              easy-kill-alist :key #'car))
+                            (easy-kill-candidate)))
                   (easy-kill-candidate))
                 easy-kill-append))
     t))
@@ -319,7 +341,9 @@ candidate property instead."
 (defun easy-kill-thing (&optional thing n inhibit-handler)
   ;; N can be -, + and digits
   (interactive
-   (list (cdr (assq last-command-event easy-kill-alist))
+   (list (pcase (assq last-command-event easy-kill-alist)
+           (`(,_ ,th . ,_) th)
+           (`(,_ . ,th) th))
          (prefix-numeric-value current-prefix-arg)))
   (let ((thing (or thing (easy-kill-get thing)))
         (n (or n 1)))
