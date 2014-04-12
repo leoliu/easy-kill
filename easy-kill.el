@@ -148,6 +148,13 @@ Do nothing if `easy-kill-inhibit-message' is non-nil."
       (`right (substring s 0 (string-match-p (concat wchars "\\'") s)))
       (_ (easy-kill-trim (easy-kill-trim s 'left) 'right)))))
 
+(defun easy-kill-fboundp (name)
+  "Like `fboundp' but NAME can be string or symbol.
+The value is the function's symbol if non-nil."
+  (cl-etypecase name
+    (string (easy-kill-fboundp (intern-soft name)))
+    (symbol (and (fboundp name) name))))
+
 (defun easy-kill-interprogram-cut (text)
   "Make non-empty TEXT available to other programs."
   (cl-check-type text string)
@@ -338,6 +345,25 @@ candidate property instead."
           (easy-kill-adjust-candidate thing nil new-end)
           t)))))
 
+(defun easy-kill-thing-handler (thing mode)
+  "Get the handler for THING or nil if none is defined.
+For example, if THING is list and MODE is nxml-mode
+`nxml:easy-kill-on-list', `easy-kill-on-list:nxml' are checked in
+order. The former is never defined in this package and is safe
+for users to customise. If neither is defined continue checking
+on the parent mode. Finally `easy-kill-on-list' is checked."
+  (cl-labels ((sname (m) (cl-etypecase m
+                           (symbol (sname (symbol-name m)))
+                           (string (substring m 0 (string-match-p
+                                                   "\\(?:-minor\\)?-mode\\'" m))))))
+    (let ((parent (get mode 'derived-mode-parent)))
+      (or (and mode (or (easy-kill-fboundp
+                         (format "%s:easy-kill-on-%s" (sname mode) thing))
+                        (easy-kill-fboundp
+                         (format "easy-kill-on-%s:%s" thing (sname mode)))))
+          (and parent (easy-kill-thing-handler thing parent))
+          (easy-kill-fboundp (format "easy-kill-on-%s" thing))))))
+
 (defun easy-kill-thing (&optional thing n inhibit-handler)
   ;; N can be -, + and digits
   (interactive
@@ -345,14 +371,14 @@ candidate property instead."
            (`(,_ ,th . ,_) th)
            (`(,_ . ,th) th))
          (prefix-numeric-value current-prefix-arg)))
-  (let ((thing (or thing (easy-kill-get thing)))
-        (n (or n 1)))
+  (let* ((thing (or thing (easy-kill-get thing)))
+         (n (or n 1))
+         (handler (and (not inhibit-handler)
+                       (easy-kill-thing-handler thing major-mode))))
     (when easy-kill-mark
       (goto-char (easy-kill-get origin)))
     (cond
-     ((and (not inhibit-handler)
-           (fboundp (intern-soft (format "easy-kill-on-%s" thing))))
-      (funcall (intern (format "easy-kill-on-%s" thing)) n))
+     (handler (funcall handler n))
      ((or (eq thing (easy-kill-get thing))
           (memq n '(+ -)))
       (easy-kill-thing-forward (pcase n
@@ -556,9 +582,25 @@ inspected."
       (_ (error "Unsupported argument `%s'" n)))
     (bounds-of-thing-at-point 'sexp)))
 
+(defun easy-kill-on-list (n)
+  (pcase n
+    ((or `+ `-)
+     (pcase (easy-kill-bounds-of-list n)
+       (`(,beg . ,end)
+        (easy-kill-adjust-candidate 'list beg end))))
+    (_ (easy-kill-thing 'list n t))))
+
+(defun easy-kill-on-sexp (n)
+  (pcase n
+    ((or `+ `-)
+     (easy-kill-thing 'list n))
+    (_ (easy-kill-thing 'sexp n t))))
+
+;;; nxml support for list-wise +/-
+
 (defvar nxml-sexp-element-flag)
 
-(defun easy-kill-on-nxml-element (n)
+(defun easy-kill-on-list:nxml (n)
   (let ((nxml-sexp-element-flag t)
         (up-list-fn 'nxml-up-element))
     (cond
@@ -577,6 +619,8 @@ inspected."
           (easy-kill-thing 'sexp n t)
           (setf (easy-kill-get thing) 'list))))))
 
+;;; js2 support for list-wise +/-
+
 (defun easy-kill-find-js2-node (beg end &optional inner)
   (eval-and-compile (require 'js2-mode))
   (let* ((node (js2-node-at-point))
@@ -594,7 +638,7 @@ inspected."
                t)))
     (if inner last-node node)))
 
-(defun easy-kill-on-js2-node (n)
+(defun easy-kill-on-list:js2 (n)
   (let ((node (pcase n
                 ((or `+ `-)
                  (easy-kill-find-js2-node (easy-kill-get start)
@@ -609,23 +653,6 @@ inspected."
     (setf (easy-kill-get describe-thing)
           (format "list (%s)" (js2-node-short-name node)))
     (easy-kill-echo "%s" (js2-node-short-name node))))
-
-(defun easy-kill-on-list (n)
-  (cond
-   ((derived-mode-p 'nxml-mode)
-    (easy-kill-on-nxml-element n))
-   ((derived-mode-p 'js2-mode)
-    (easy-kill-on-js2-node n))
-   ((memq n '(+ -))
-    (let ((bounds (easy-kill-bounds-of-list n)))
-      (when bounds
-        (easy-kill-adjust-candidate 'list (car bounds) (cdr bounds)))))
-   (t (easy-kill-thing 'list n t))))
-
-(defun easy-kill-on-sexp (n)
-  (if (memq n '(+ -))
-      (easy-kill-on-list n)
-    (easy-kill-thing 'sexp n t)))
 
 (provide 'easy-kill)
 ;;; easy-kill.el ends here
