@@ -157,6 +157,7 @@ The value is the function's symbol if non-nil."
 
 (defun easy-kill-pair-to-list (pair)
   (pcase pair
+    (`nil nil)
     (`(,beg . ,end) (list beg end))
     (_ (signal 'wrong-type-argument (list pair "Not a dot pair")))))
 
@@ -335,7 +336,8 @@ candidate property instead."
   (when (and (easy-kill-get thing) (/= n 0))
     (let* ((step (if (cl-minusp n) -1 +1))
            (thing (easy-kill-get thing))
-           (bounds1 (easy-kill-pair-to-list (bounds-of-thing-at-point thing)))
+           (bounds1 (or (easy-kill-pair-to-list (bounds-of-thing-at-point thing))
+                        (list (point) (point))))
            (start (easy-kill-get start))
            (end (easy-kill-get end))
            (front (or (car (cl-set-difference (list end start) bounds1))
