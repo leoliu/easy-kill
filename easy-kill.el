@@ -155,6 +155,11 @@ The value is the function's symbol if non-nil."
     (string (easy-kill-fboundp (intern-soft name)))
     (symbol (and (fboundp name) name))))
 
+(defun easy-kill-pair-to-list (pair)
+  (pcase pair
+    (`(,beg . ,end) (list beg end))
+    (_ (signal 'wrong-type-argument (list pair "Not a dot pair")))))
+
 (defun easy-kill-interprogram-cut (text)
   "Make non-empty TEXT available to other programs."
   (cl-check-type text string)
@@ -325,25 +330,29 @@ candidate property instead."
   (interactive)
   (easy-kill-thing nil '-))
 
-;; helper for `easy-kill-thing'.
+;; Helper for `easy-kill-thing'.
 (defun easy-kill-thing-forward (n)
-  (let ((step (if (cl-minusp n) -1 +1))
-        (thing (easy-kill-get thing))
-        (start (easy-kill-get start))
-        (end (easy-kill-get end)))
-    (when (and thing (/= n 0))
-      (let ((new-end (save-excursion
-                       (goto-char end)
-                       (with-demoted-errors
-                         (cl-dotimes (_ (abs n))
-                           (forward-thing thing step)
-                           (when (<= (point) start)
-                             (forward-thing thing 1)
-                             (cl-return))))
-                       (point))))
-        (when (/= end new-end)
-          (easy-kill-adjust-candidate thing nil new-end)
-          t)))))
+  (when (and (easy-kill-get thing) (/= n 0))
+    (let* ((step (if (cl-minusp n) -1 +1))
+           (thing (easy-kill-get thing))
+           (bounds1 (easy-kill-pair-to-list (bounds-of-thing-at-point thing)))
+           (start (easy-kill-get start))
+           (end (easy-kill-get end))
+           (front (or (car (cl-set-difference (list end start) bounds1))
+                      (pcase step
+                        (`-1 start)
+                        (`1 end))))
+           (new-front (save-excursion
+                        (goto-char front)
+                        (with-demoted-errors
+                          (cl-dotimes (_ (abs n))
+                            (forward-thing thing step)))
+                        (point))))
+      (pcase (and (/= front new-front)
+                  (sort (cons new-front bounds1) #'<))
+        (`(,start ,_ ,end)
+         (easy-kill-adjust-candidate thing start end)
+         t)))))
 
 (defun easy-kill-thing-handler (thing mode)
   "Get the handler for THING or nil if none is defined.

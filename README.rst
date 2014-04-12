@@ -89,6 +89,7 @@ NEWS
 0.9.2
 +++++
 
+#. ``-`` can move pass the first selection.
 #. Mouse over the selection now shows description.
 #. Echo js2 node name.
 #. Append now uses sensible separator (customisable via
