@@ -622,7 +622,7 @@ inspected."
 ;;; js2 support for list-wise +/-
 
 (defun easy-kill-find-js2-node (beg end &optional inner)
-  (eval-and-compile (require 'js2-mode))
+  (eval-and-compile (require 'js2-mode nil t))
   (let* ((node (js2-node-at-point))
          (last-node node))
     (while (progn
