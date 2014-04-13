@@ -37,6 +37,7 @@ The following keys modify the selection:
 #. ``+``, ``-`` and ``0..9``: expand/shrink selection
 #. ``C-SPC``: turn selection into an active region
 #. ``C-g``: abort
+#. ``?``: help
 
 For example, ``M-w w`` saves current word, repeat ``w`` to expand the
 kill to include the next word. ``5`` to include the next 5 words etc.
@@ -85,6 +86,11 @@ convention, or by defining new functions named like
 
 NEWS
 ~~~~
+
+0.9.3
++++++
+
+#. Key ``?`` in ``easy-kill`` or ``easy-mark`` prints help info.
 
 0.9.2
 +++++

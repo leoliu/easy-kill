@@ -3,7 +3,7 @@
 ;; Copyright (C) 2013-2014  Free Software Foundation, Inc.
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
-;; Version: 0.9.2
+;; Version: 0.9.3
 ;; Package-Requires: ((emacs "24") (cl-lib "0.5"))
 ;; Keywords: killing, convenience
 ;; Created: 2013-08-12
@@ -113,22 +113,14 @@ deprecated."
     (define-key map "+" 'easy-kill-expand)
     (define-key map "=" 'easy-kill-expand)
     (define-key map "@" 'easy-kill-append)
+    ;; Note: didn't pick C-h because it is a very useful prefix key.
+    (define-key map "?" 'easy-kill-help)
     (define-key map [remap set-mark-command] 'easy-kill-mark-region)
     (define-key map [remap kill-region] 'easy-kill-region)
     (define-key map [remap keyboard-quit] 'easy-kill-abort)
     (mapc (lambda (d)
             (define-key map (number-to-string d) 'easy-kill-digit-argument))
           (number-sequence 0 9))
-    map))
-
-(defun easy-kill-map ()
-  "Build the keymap according to `easy-kill-alist'."
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map easy-kill-base-map)
-    (mapc (lambda (c)
-            ;; (define-key map (vector meta-prefix-char c) 'easy-kill-select)
-            (define-key map (char-to-string c) 'easy-kill-thing))
-          (mapcar 'car easy-kill-alist))
     map))
 
 (defvar easy-kill-inhibit-message nil)
@@ -167,6 +159,48 @@ The value is the function's symbol if non-nil."
   (and interprogram-cut-function
        (not (equal text ""))
        (funcall interprogram-cut-function text)))
+
+(defun easy-kill-map ()
+  "Build the keymap according to `easy-kill-alist'."
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map easy-kill-base-map)
+    (mapc (lambda (c)
+            ;; (define-key map (vector meta-prefix-char c) 'easy-kill-select)
+            (define-key map (char-to-string c) 'easy-kill-thing))
+          (mapcar 'car easy-kill-alist))
+    map))
+
+(defun easy-kill--fmt (x y z)
+  (cl-etypecase x
+    (character (easy-kill--fmt
+                (single-key-description x)
+                (symbol-name y)
+                (let ((print-escape-newlines t))
+                  (prin1-to-string z))))
+    (string (with-output-to-string
+              (princ x)
+              (princ (make-string (- 16 (length x)) ?\s))
+              (princ y)
+              (princ (make-string (- 16 (length y)) ?\s))
+              (princ z)))))
+
+(defun easy-kill-help ()
+  (interactive)
+  (help-setup-xref '(easy-kill-help) (called-interactively-p 'any))
+  (with-help-window (help-buffer)
+    (princ (concat (make-string 15 ?=) " "))
+    (princ "Easy Kill/Mark Key Bindings ")
+    (princ (concat (make-string 15 ?=) "\n\n"))
+    (princ (easy-kill--fmt "Key" "Thing" "Separator"))
+    (princ "\n")
+    (princ (easy-kill--fmt "---" "-----" "---------"))
+    (princ "\n\n")
+    (princ (mapconcat (lambda (x)
+                        (pcase x
+                          (`(,c ,thing ,sep) (easy-kill--fmt c thing sep))))
+                      easy-kill-alist "\n"))
+    (princ "\n")
+    (princ (substitute-command-keys "\\{easy-kill-base-map}"))))
 
 (defvar easy-kill-candidate nil)
 (defvar easy-kill-append nil)
@@ -483,6 +517,7 @@ Temporally activate additional key bindings as follows:
   0..9    => expand selection by that number;
   +,=/-   => expand or shrink selection;
   @       => append selection to previous kill;
+  ?       => help;
   C-w     => kill selection;
   C-SPC   => turn selection into an active region;
   C-g     => abort;
