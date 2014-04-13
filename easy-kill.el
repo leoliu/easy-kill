@@ -349,8 +349,15 @@ candidate property instead."
            (new-front (save-excursion
                         (goto-char front)
                         (with-demoted-errors
-                          (cl-dotimes (_ (abs n))
-                            (forward-thing thing step)))
+                          (cl-labels ((forward-defun (s)
+                                                     (pcase s
+                                                       (`-1 (beginning-of-defun 1))
+                                                       (`+1 (end-of-defun 1)))))
+                            (dotimes (_ (abs n))
+                              ;; Work around http://debbugs.gnu.org/17247
+                              (if (eq thing 'defun)
+                                  (forward-defun step)
+                                (forward-thing thing step)))))
                         (point))))
       (pcase (and (/= front new-front)
                   (sort (cons new-front bounds1) #'<))
