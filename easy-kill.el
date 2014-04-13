@@ -257,9 +257,10 @@ Otherwise, it is the value of the overlay's candidate property."
                          ;; Allow describe-PROP to provide customised
                          ;; description.
                          for dk = (intern-soft (format "describe-%s" k))
-                         for v = (or (plist-get all dk) (plist-get all k))
-                         when v collect (format "%s:\t%s" k
-                                                (if (functionp v) (funcall v) v))))
+                         for dv = (and dk (plist-get all dk))
+                         for v = (or (if (functionp dv) (funcall dv) dv)
+                                     (plist-get all k))
+                         when v collect (format "%s:\t%s" k v)))
          (txt (mapconcat #'identity props "\n")))
     (format "cmd:\t%s\n%s" (if easy-kill-mark "easy-mark" "easy-kill") txt)))
 
