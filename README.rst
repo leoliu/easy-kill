@@ -47,8 +47,8 @@ So for ``word`` the expansion is word-wise, for ``line`` line-wise,
 for ``list`` or ``sexp``, list-wise.
 
 ``list-wise`` expanding/shrinking work well in lispy modes (elisp,
-Common Lisp, Scheme, Clojure etc.), smie-based modes (Shell, Ruby,
-Octave, SML, Prolog, Modula2, SQL etc.), nxml modes and js2 mode.
+Common Lisp, Scheme, Clojure etc.), smie-based modes (Prolog, SML,
+Modula2, Shell, Ruby, Octave, CSS, SQL etc.), Nxml mode and Js2 mode.
 
 To copy the enclosing list in lispy modes, I used to do a lot of
 ``C-M-u C-M-SPC M-w``. Now the key sequence is replaced by ``M-w l``
@@ -90,6 +90,7 @@ NEWS
 +++++
 
 #. ``-`` can move pass the first selection.
+#. ``+``/``-`` on ``sexp`` no longer change ``thing`` to ``list``
 #. Mouse over the selection now shows description.
 #. Echo js2 node name.
 #. Append now uses sensible separator (customisable via

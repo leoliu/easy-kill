@@ -258,7 +258,8 @@ Otherwise, it is the value of the overlay's candidate property."
                          ;; description.
                          for dk = (intern-soft (format "describe-%s" k))
                          for v = (or (plist-get all dk) (plist-get all k))
-                         when v collect (format "%s:\t%s" k v)))
+                         when v collect (format "%s:\t%s" k
+                                                (if (functionp v) (funcall v) v))))
          (txt (mapconcat #'identity props "\n")))
     (format "cmd:\t%s\n%s" (if easy-kill-mark "easy-mark" "easy-kill") txt)))
 
@@ -604,7 +605,8 @@ inspected."
 (defun easy-kill-on-sexp (n)
   (pcase n
     ((or `+ `-)
-     (easy-kill-thing 'list n))
+     (unwind-protect (easy-kill-thing 'list n)
+       (setf (easy-kill-get thing) 'sexp)))
     (_ (easy-kill-thing 'sexp n t))))
 
 ;;; nxml support for list-wise +/-
@@ -662,7 +664,9 @@ inspected."
                                 (js2-node-abs-pos node)
                                 (js2-node-abs-end node))
     (setf (easy-kill-get describe-thing)
-          (format "list (%s)" (js2-node-short-name node)))
+          ;; Also used by `sexp' so delay computation until needed.
+          (lambda ()
+            (format "%s (%s)" (easy-kill-get thing) (js2-node-short-name node))))
     (easy-kill-echo "%s" (js2-node-short-name node))))
 
 (provide 'easy-kill)
