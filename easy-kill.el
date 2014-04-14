@@ -170,19 +170,20 @@ The value is the function's symbol if non-nil."
           (mapcar 'car easy-kill-alist))
     map))
 
-(defun easy-kill--fmt (x y z)
+(defun easy-kill--fmt (x y &optional z)
   (cl-etypecase x
     (character (easy-kill--fmt
                 (single-key-description x)
                 (symbol-name y)
-                (let ((print-escape-newlines t))
-                  (prin1-to-string z))))
+                (and z (let ((print-escape-newlines t))
+                         (prin1-to-string z)))))
     (string (with-output-to-string
               (princ x)
-              (princ (make-string (- 16 (length x)) ?\s))
+              (princ (make-string (- 16 (mod (length x) 16)) ?\s))
               (princ y)
-              (princ (make-string (- 16 (length y)) ?\s))
-              (princ z)))))
+              (when z
+                (princ (make-string (- 16 (mod (length y) 16)) ?\s))
+                (princ z))))))
 
 (defun easy-kill-help ()
   (interactive)
@@ -195,11 +196,13 @@ The value is the function's symbol if non-nil."
     (princ "\n")
     (princ (easy-kill--fmt "---" "-----" "---------"))
     (princ "\n\n")
-    (princ (mapconcat (lambda (x)
-                        (pcase x
-                          (`(,c ,thing ,sep) (easy-kill--fmt c thing sep))))
+    (princ (mapconcat (lambda (x) (pcase x
+                                    (`(,c ,thing ,sep)
+                                     (easy-kill--fmt c thing sep))
+                                    ((or `(,c ,thing) `(,c . ,thing))
+                                     (easy-kill--fmt c thing))))
                       easy-kill-alist "\n"))
-    (princ "\n")
+    (princ "\n\n")
     (princ (substitute-command-keys "\\{easy-kill-base-map}"))))
 
 (defvar easy-kill-candidate nil)
