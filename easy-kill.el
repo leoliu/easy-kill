@@ -643,16 +643,20 @@ inspected."
     (bounds-of-thing-at-point 'sexp)))
 
 (defun easy-kill-bounds-of-list-at-point ()
-  (cl-labels ((bos ()                   ;bounds of string
-                   (and (nth 3 (syntax-ppss))
-                        (save-excursion
-                          (easy-kill-backward-up)
-                          (bounds-of-thing-at-point 'sexp)))))
-    (pcase (cons (point)
-                 (easy-kill-pair-to-list (bounds-of-thing-at-point 'list)))
-      (`(,beg ,beg ,end) (or (bos) (cons beg end)))
-      (`(,_ ,beg ,end)   (cons beg end))
-      (_                 (bos)))))
+  (let ((bos (and (nth 3 (syntax-ppss)) ;bounds of string
+                  (save-excursion
+                    (easy-kill-backward-up)
+                    (bounds-of-thing-at-point 'sexp))))
+        (b (bounds-of-thing-at-point 'list))
+        (b1-in-b2 (lambda (b1 b2)
+                    (and (> (car b1) (car b2))
+                         (< (cdr b1) (cdr b2))))))
+    (cond
+     ((not b)                  bos)
+     ((not bos)                b)
+     ((= (car b) (point))      bos)
+     ((funcall b1-in-b2 b bos) b)
+     (t                        bos))))
 
 (defun easy-kill-on-list (n)
   (pcase n
