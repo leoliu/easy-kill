@@ -70,14 +70,13 @@
         (add-hook 'pre-command-hook clearfunsym)
         (push alist emulation-mode-map-alists))))))
 
-(defcustom easy-kill-alist
-  '((?w word     " ")
-    (?s sexp     "\n")
-    (?l list     "\n")
-    (?f filename "\n")
-    (?d defun    "\n\n")
-    (?e line     "\n")
-    (?b buffer-file-name))
+(defcustom easy-kill-alist '((?w word     " ")
+                             (?s sexp     "\n")
+                             (?l list     "\n")
+                             (?f filename "\n")
+                             (?d defun    "\n\n")
+                             (?e line     "\n")
+                             (?b buffer-file-name))
   "A list of (CHAR THING APPEND).
 CHAR is used immediately following `easy-kill' to select THING.
 APPEND is optional and if non-nil specifies the separator (a
@@ -646,7 +645,20 @@ inspected."
      (pcase (easy-kill-bounds-of-list n)
        (`(,beg . ,end)
         (easy-kill-adjust-candidate 'list beg end))))
-    (_ (easy-kill-thing 'list n t))))
+    (_ (pcase (easy-kill-get thing)
+         (`list (easy-kill-thing 'list n t))
+         (_ (let ((bounds (bounds-of-thing-at-point 'list)))
+              (cond ((and bounds (or (/= (car bounds) (point))
+                                     (not (nth 3 (syntax-ppss)))))
+                     (setf (easy-kill-get thing) 'list
+                           (easy-kill-get bounds) bounds))
+                    ((nth 3 (syntax-ppss))
+                     (save-excursion
+                       (easy-kill-backward-up)
+                       (setf (easy-kill-get thing) 'list)
+                       (setf (easy-kill-get bounds)
+                             (bounds-of-thing-at-point 'sexp))))
+                    (t (easy-kill-echo "No `list' at point")))))))))
 
 (defun easy-kill-on-sexp (n)
   (pcase n
