@@ -374,7 +374,10 @@ candidate property instead."
   (when (and (easy-kill-get thing) (/= n 0))
     (let* ((step (if (cl-minusp n) -1 +1))
            (thing (easy-kill-get thing))
-           (bounds1 (or (easy-kill-pair-to-list (bounds-of-thing-at-point thing))
+           (bounds1 (or (easy-kill-pair-to-list
+                         (if (eq thing 'list)
+                             (easy-kill-bounds-of-list-at-point)
+                           (bounds-of-thing-at-point thing)))
                         (list (point) (point))))
            (start (easy-kill-get start))
            (end (easy-kill-get end))
@@ -639,6 +642,18 @@ inspected."
       (_ (error "Unsupported argument `%s'" n)))
     (bounds-of-thing-at-point 'sexp)))
 
+(defun easy-kill-bounds-of-list-at-point ()
+  (cl-labels ((bos ()                   ;bounds of string
+                   (and (nth 3 (syntax-ppss))
+                        (save-excursion
+                          (easy-kill-backward-up)
+                          (bounds-of-thing-at-point 'sexp)))))
+    (pcase (cons (point)
+                 (easy-kill-pair-to-list (bounds-of-thing-at-point 'list)))
+      (`(,beg ,beg ,end) (or (bos) (cons beg end)))
+      (`(,_ ,beg ,end)   (cons beg end))
+      (_                 (bos)))))
+
 (defun easy-kill-on-list (n)
   (pcase n
     ((or `+ `-)
@@ -647,18 +662,11 @@ inspected."
         (easy-kill-adjust-candidate 'list beg end))))
     (_ (pcase (easy-kill-get thing)
          (`list (easy-kill-thing 'list n t))
-         (_ (let ((bounds (bounds-of-thing-at-point 'list)))
-              (cond ((and bounds (or (/= (car bounds) (point))
-                                     (not (nth 3 (syntax-ppss)))))
-                     (setf (easy-kill-get thing) 'list
-                           (easy-kill-get bounds) bounds))
-                    ((nth 3 (syntax-ppss))
-                     (save-excursion
-                       (easy-kill-backward-up)
-                       (setf (easy-kill-get thing) 'list)
-                       (setf (easy-kill-get bounds)
-                             (bounds-of-thing-at-point 'sexp))))
-                    (t (easy-kill-echo "No `list' at point")))))))))
+         (_ (pcase (easy-kill-bounds-of-list-at-point)
+              (`(,beg . ,end)
+               (setf (easy-kill-get thing) 'list)
+               (setf (easy-kill-get bounds) (cons beg end)))
+              (`nil (easy-kill-echo "No `list' at point"))))))))
 
 (defun easy-kill-on-sexp (n)
   (pcase n

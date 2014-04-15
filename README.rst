@@ -91,6 +91,7 @@ NEWS
 +++++
 
 #. Key ``?`` in ``easy-kill`` or ``easy-mark`` prints help info.
+#. ``M-w l`` can select the enclosing string.
 
 0.9.2
 +++++
