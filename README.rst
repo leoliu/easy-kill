@@ -92,6 +92,7 @@ NEWS
 
 #. Key ``?`` in ``easy-kill`` or ``easy-mark`` prints help info.
 #. ``M-w l`` can select the enclosing string.
+#. ``easy-mark`` learns exchanging point & mark.
 
 0.9.2
 +++++
