@@ -51,7 +51,8 @@ for ``list`` or ``sexp``, list-wise.
 
 ``list-wise`` expanding/shrinking work well in lispy modes (elisp,
 Common Lisp, Scheme, Clojure etc.), smie-based modes (Prolog, SML,
-Modula2, Shell, Ruby, Octave, CSS, SQL etc.), Nxml mode and Js2 mode.
+Modula2, Shell, Ruby, Octave, CSS, SQL etc.), Org mode, Nxml mode and
+Js2 mode.
 
 To copy the enclosing list in lispy modes, I used to do a lot of
 ``C-M-u C-M-SPC M-w``. Now the key sequence is replaced by ``M-w l``
@@ -95,8 +96,9 @@ NEWS
 #. Key ``?`` in ``easy-kill`` or ``easy-mark`` prints help info.
 #. ``M-w l`` can select the enclosing string.
 #. ``easy-mark`` learns exchanging point & mark.
-#. ``0`` now sets the selection to its initial size before any
+#. Key ``0`` now sets the selection to its initial size before any
    expansion.
+#. ``M-w l``, ``M-w s`` and list-wise ``+/-`` now work in Org mode.
 
 0.9.2
 +++++

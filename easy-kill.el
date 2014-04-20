@@ -141,6 +141,12 @@ Do nothing if `easy-kill-inhibit-message' is non-nil."
       (`right (substring s 0 (string-match-p (concat wchars "\\'") s)))
       (_ (easy-kill-trim (easy-kill-trim s 'left) 'right)))))
 
+(defun easy-kill-mode-sname (m)
+  (cl-check-type m (and (or symbol string) (not boolean)))
+  (cl-etypecase m
+    (symbol (easy-kill-mode-sname (symbol-name m)))
+    (string (substring m 0 (string-match-p "\\(?:-minor\\)?-mode\\'" m)))))
+
 (defun easy-kill-fboundp (name)
   "Like `fboundp' but NAME can be string or symbol.
 The value is the function's symbol if non-nil."
@@ -233,6 +239,7 @@ Use `setf' to change property value."
     (`buffer '(overlay-buffer easy-kill-candidate))
     (`properties '(append (list 'start (easy-kill-get start))
                           (list 'end (easy-kill-get end))
+                          (list 'buffer (easy-kill-get buffer))
                           (overlay-properties easy-kill-candidate)))
     (_       `(overlay-get easy-kill-candidate ',prop))))
 
@@ -374,17 +381,37 @@ expansion."
   (interactive)
   (easy-kill-thing nil '-))
 
+(defun easy-kill-thing-handler (base mode)
+  "Get the handler for MODE or nil if none is defined.
+For example, if BASE is \"easy-kill-on-list\" and MODE is
+nxml-mode `nxml:easy-kill-on-list', `easy-kill-on-list:nxml' are
+checked in order. The former is never defined in this package and
+is safe for users to customise. If neither is defined continue
+checking on the parent mode. Finally `easy-kill-on-list' is
+checked."
+  (or (and mode (or (easy-kill-fboundp
+                     (concat (easy-kill-mode-sname mode) ":" base))
+                    (easy-kill-fboundp
+                     (concat base ":" (easy-kill-mode-sname mode)))))
+      (let ((parent (get mode 'derived-mode-parent)))
+        (and parent (easy-kill-thing-handler base parent)))
+      (easy-kill-fboundp base)))
+
 (defun easy-kill-bounds-of-thing-at-point (thing)
   "Easy Kill wrapper for `bounds-of-thing-at-point'."
-  (pcase (get thing 'easy-kill-bounds-of-thing-at-point)
-    (`nil (bounds-of-thing-at-point thing))
-    (fn (funcall fn))))
+  (pcase (easy-kill-thing-handler
+          (format "easy-kill-bounds-of-%s-at-point" thing)
+          major-mode)
+    ((and (pred functionp) fn) (funcall fn))
+    (_ (bounds-of-thing-at-point thing))))
 
 (defun easy-kill-thing-forward-1 (thing &optional n)
   "Easy Kill wrapper for `forward-thing'."
-  (pcase (get thing 'easy-kill-forward-op)
-    (`nil (forward-thing thing n))
-    (fn (funcall fn (or n 1)))))
+  (pcase (easy-kill-thing-handler
+          (format "easy-kill-thing-forward-%s" thing)
+          major-mode)
+    ((and (pred functionp) fn) (funcall fn n))
+    (_ (forward-thing thing n))))
 
 ;; Helper for `easy-kill-thing'.
 (defun easy-kill-thing-forward (n)
@@ -412,25 +439,6 @@ expansion."
          (easy-kill-adjust-candidate thing start end)
          t)))))
 
-(defun easy-kill-thing-handler (thing mode)
-  "Get the handler for THING or nil if none is defined.
-For example, if THING is list and MODE is nxml-mode
-`nxml:easy-kill-on-list', `easy-kill-on-list:nxml' are checked in
-order. The former is never defined in this package and is safe
-for users to customise. If neither is defined continue checking
-on the parent mode. Finally `easy-kill-on-list' is checked."
-  (cl-labels ((sname (m) (cl-etypecase m
-                           (symbol (sname (symbol-name m)))
-                           (string (substring m 0 (string-match-p
-                                                   "\\(?:-minor\\)?-mode\\'" m))))))
-    (let ((parent (get mode 'derived-mode-parent)))
-      (or (and mode (or (easy-kill-fboundp
-                         (format "%s:easy-kill-on-%s" (sname mode) thing))
-                        (easy-kill-fboundp
-                         (format "easy-kill-on-%s:%s" thing (sname mode)))))
-          (and parent (easy-kill-thing-handler thing parent))
-          (easy-kill-fboundp (format "easy-kill-on-%s" thing))))))
-
 (defun easy-kill-thing (&optional thing n inhibit-handler)
   ;; N can be -, + and digits
   (interactive
@@ -441,7 +449,8 @@ on the parent mode. Finally `easy-kill-on-list' is checked."
   (let* ((thing (or thing (easy-kill-get thing)))
          (n (or n 1))
          (handler (and (not inhibit-handler)
-                       (easy-kill-thing-handler thing major-mode))))
+                       (easy-kill-thing-handler (format "easy-kill-on-%s" thing)
+                                                major-mode))))
     (when easy-kill-mark
       (goto-char (easy-kill-get origin)))
     (cond
@@ -632,15 +641,12 @@ inspected."
 ;;; `defun'
 
 ;; Work around http://debbugs.gnu.org/17247
-(put 'defun 'easy-kill-forward-op (lambda (n)
-                                    (if (cl-minusp n)
-                                        (beginning-of-defun (- n))
-                                      (end-of-defun n))))
+(defun easy-kill-thing-forward-defun (&optional n)
+  (pcase (or n 1)
+    ((pred cl-minusp) (beginning-of-defun (- n)))
+    (_ (end-of-defun n))))
 
 ;;; Handler for `sexp' and `list'.
-
-(put 'list 'easy-kill-bounds-of-thing-at-point
-     #'easy-kill-bounds-of-list-at-point)
 
 (defun easy-kill-bounds-of-list-at-point ()
   (let ((bos (and (nth 3 (syntax-ppss)) ;bounds of string
@@ -728,6 +734,56 @@ inspected."
           (ignore-errors (easy-kill-backward-up))
           (easy-kill-thing 'sexp n t)
           (setf (easy-kill-get thing) 'list))))))
+
+;;; org support for list-wise +/-
+
+(defun easy-kill-bounds-of-list-at-point:org ()
+  (eval-and-compile (require 'org-element))
+  (let ((x (org-element-at-point)))
+    (cons (org-element-property :begin x)
+          (org-element-property :end x))))
+
+(defun easy-kill-bounds-of-sexp-at-point:org ()
+  (pcase (list (point) (easy-kill-bounds-of-list-at-point:org))
+    (`(,beg (,beg . ,end))
+     (cons beg end))
+    (_ (bounds-of-thing-at-point 'sexp))))
+
+(defun easy-kill-thing-forward-list:org (&optional n)
+  (pcase (or n 1)
+    (`0 nil)
+    (_ (dotimes (_ (abs n))
+         (condition-case nil
+             (if (cl-minusp n)
+                 (org-backward-element)
+               (org-forward-element))
+           (error (pcase (easy-kill-bounds-of-thing-at-point 'list)
+                    (`(,beg . ,end)
+                     (goto-char (if (cl-minusp n) beg end))))))))))
+
+(defun easy-kill-org-up-element (&optional n)
+  ;; Make `org-up-element' more like `up-list'.
+  (pcase (or n 1)
+    (`0 nil)
+    (_ (ignore-errors (dotimes (_ (abs n)) (org-up-element)))
+       (when (cl-plusp n)
+         (goto-char (cdr (easy-kill-bounds-of-thing-at-point 'list)))))))
+
+(defun easy-kill-on-list:org (n)
+  (pcase n
+    ((or `+ `-)
+     (pcase (let ((up-list-fn #'easy-kill-org-up-element))
+              (easy-kill-bounds-of-list n))
+       (`(,beg . ,end) (easy-kill-adjust-candidate 'list beg end))))
+    (_ (easy-kill-thing 'list n t)))
+  (pcase (save-excursion
+           (goto-char (easy-kill-get start))
+           (org-element-type (org-element-at-point)))
+    (`nil nil)
+    (type (setf (easy-kill-get describe-thing)
+                (lambda ()
+                  (format "%s (%s)" (easy-kill-get thing) type)))
+          (easy-kill-echo "%s" type))))
 
 ;;; js2 support for list-wise +/-
 
