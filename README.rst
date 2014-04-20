@@ -34,7 +34,9 @@ The following keys modify the selection:
 #. ``@``: append selection to previous kill and exit. For example,
    ``M-w d @`` will append current function to last kill.
 #. ``C-w``: kill selection and exit
-#. ``+``, ``-`` and ``0..9``: expand/shrink selection
+#. ``+``, ``-`` and ``1..9``: expand/shrink selection
+#. ``0`` shrink the selection to the intitial size i.e. before any
+   expansion
 #. ``C-SPC``: turn selection into an active region
 #. ``C-g``: abort
 #. ``?``: help
@@ -93,6 +95,8 @@ NEWS
 #. Key ``?`` in ``easy-kill`` or ``easy-mark`` prints help info.
 #. ``M-w l`` can select the enclosing string.
 #. ``easy-mark`` learns exchanging point & mark.
+#. ``0`` now sets the selection to its initial size before any
+   expansion.
 
 0.9.2
 +++++

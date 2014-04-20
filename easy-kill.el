@@ -359,6 +359,9 @@ candidate property instead."
   (easy-kill-thing nil '+))
 
 (defun easy-kill-digit-argument (n)
+  "Expand selection by N number of things.
+If N is 0 shrink the selection to the initial size before any
+expansion."
   (interactive
    (list (- (logand (if (integerp last-command-event)
                         last-command-event
@@ -443,8 +446,9 @@ on the parent mode. Finally `easy-kill-on-list' is checked."
       (goto-char (easy-kill-get origin)))
     (cond
      (handler (funcall handler n))
-     ((or (eq thing (easy-kill-get thing))
-          (memq n '(+ -)))
+     ((or (memq n '(+ -))
+          (and (eq thing (easy-kill-get thing))
+               (not (zerop n))))
       (easy-kill-thing-forward (pcase n
                                  (`+ 1)
                                  (`- -1)
@@ -453,7 +457,8 @@ on the parent mode. Finally `easy-kill-on-list' is checked."
           (`nil (easy-kill-echo "No `%s'" thing))
           (`(,start . ,end)
            (easy-kill-adjust-candidate thing start end)
-           (easy-kill-thing-forward (1- n))))))
+           (unless (zerop n)
+             (easy-kill-thing-forward (1- n)))))))
     (when easy-kill-mark
       (easy-kill-adjust-candidate (easy-kill-get thing)))))
 
@@ -534,7 +539,8 @@ on the parent mode. Finally `easy-kill-on-list' is checked."
 Temporally activate additional key bindings as follows:
 
   letters => select or expand selection according to `easy-kill-alist';
-  0..9    => expand selection by that number;
+  1..9    => expand selection by that number;
+  0       => shrink to the initial selection;
   +,=/-   => expand or shrink selection;
   @       => append selection to previous kill;
   ?       => help;
@@ -710,7 +716,8 @@ inspected."
      ((memq n '(+ -))
       (pcase (easy-kill-bounds-of-list n)
         (`(,beg . ,end) (easy-kill-adjust-candidate 'list beg end))))
-     ((eq 'list (easy-kill-get thing))
+     ((and (eq 'list (easy-kill-get thing))
+           (not (zerop n)))
       (let ((new-end (save-excursion
                        (goto-char (easy-kill-get end))
                        (forward-sexp n)
@@ -747,7 +754,8 @@ inspected."
                  (easy-kill-find-js2-node (easy-kill-get start)
                                           (easy-kill-get end)
                                           (eq n '-)))
-                ((guard (eq 'list (easy-kill-get thing)))
+                ((guard (and (eq 'list (easy-kill-get thing))
+                             (not (zerop n))))
                  (error "List forward not supported in js2-mode"))
                 (_ (js2-node-at-point)))))
     (easy-kill-adjust-candidate 'list
