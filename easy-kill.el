@@ -371,21 +371,17 @@ candidate property instead."
   (interactive)
   (easy-kill-thing nil '-))
 
-(defun easy-kill-bounds-of-list-at-point ()
-  (let ((bos (and (nth 3 (syntax-ppss)) ;bounds of string
-                  (save-excursion
-                    (easy-kill-backward-up)
-                    (bounds-of-thing-at-point 'sexp))))
-        (b (bounds-of-thing-at-point 'list))
-        (b1-in-b2 (lambda (b1 b2)
-                    (and (> (car b1) (car b2))
-                         (< (cdr b1) (cdr b2))))))
-    (cond
-     ((not b)                  bos)
-     ((not bos)                b)
-     ((= (car b) (point))      bos)
-     ((funcall b1-in-b2 b bos) b)
-     (t                        bos))))
+(defun easy-kill-bounds-of-thing-at-point (thing)
+  "Easy Kill wrapper for `bounds-of-thing-at-point'."
+  (pcase (get thing 'easy-kill-bounds-of-thing-at-point)
+    (`nil (bounds-of-thing-at-point thing))
+    (fn (funcall fn))))
+
+(defun easy-kill-thing-forward-1 (thing &optional n)
+  "Easy Kill wrapper for `forward-thing'."
+  (pcase (get thing 'easy-kill-forward-op)
+    (`nil (forward-thing thing n))
+    (fn (funcall fn (or n 1)))))
 
 ;; Helper for `easy-kill-thing'.
 (defun easy-kill-thing-forward (n)
@@ -393,9 +389,7 @@ candidate property instead."
     (let* ((step (if (cl-minusp n) -1 +1))
            (thing (easy-kill-get thing))
            (bounds1 (or (easy-kill-pair-to-list
-                         (if (eq thing 'list)
-                             (easy-kill-bounds-of-list-at-point)
-                           (bounds-of-thing-at-point thing)))
+                         (easy-kill-bounds-of-thing-at-point thing))
                         (list (point) (point))))
            (start (easy-kill-get start))
            (end (easy-kill-get end))
@@ -406,15 +400,8 @@ candidate property instead."
            (new-front (save-excursion
                         (goto-char front)
                         (with-demoted-errors
-                          (cl-labels ((forward-defun (s)
-                                                     (pcase s
-                                                       (`-1 (beginning-of-defun 1))
-                                                       (`+1 (end-of-defun 1)))))
-                            (dotimes (_ (abs n))
-                              ;; Work around http://debbugs.gnu.org/17247
-                              (if (eq thing 'defun)
-                                  (forward-defun step)
-                                (forward-thing thing step)))))
+                          (dotimes (_ (abs n))
+                            (easy-kill-thing-forward-1 thing step)))
                         (point))))
       (pcase (and (/= front new-front)
                   (sort (cons new-front bounds1) #'<))
@@ -462,9 +449,7 @@ on the parent mode. Finally `easy-kill-on-list' is checked."
                                  (`+ 1)
                                  (`- -1)
                                  (_ n))))
-     (t (pcase (if (eq thing 'list)
-                   (easy-kill-bounds-of-list-at-point)
-                 (bounds-of-thing-at-point thing))
+     (t (pcase (easy-kill-bounds-of-thing-at-point thing)
           (`nil (easy-kill-echo "No `%s'" thing))
           (`(,start . ,end)
            (easy-kill-adjust-candidate thing start end)
@@ -621,13 +606,13 @@ part; +, full path."
   "Get url at point or from char properties.
 Char properties `help-echo', `shr-url' and `w3m-href-anchor' are
 inspected."
-  (if (or easy-kill-mark (bounds-of-thing-at-point 'url))
+  (if (or easy-kill-mark (easy-kill-bounds-of-thing-at-point 'url))
       (easy-kill-thing 'url nil t)
     (cl-labels ((get-url (text)
                          (when (stringp text)
                            (with-temp-buffer
                              (insert text)
-                             (pcase (bounds-of-thing-at-point 'url)
+                             (pcase (easy-kill-bounds-of-thing-at-point 'url)
                                (`(,beg . ,end) (buffer-substring beg end)))))))
       (cl-dolist (p '(help-echo shr-url w3m-href-anchor))
         (pcase (get-char-property-and-overlay (point) p)
@@ -638,7 +623,34 @@ inspected."
               (easy-kill-adjust-candidate 'url url)
               (cl-return url)))))))))
 
+;;; `defun'
+
+;; Work around http://debbugs.gnu.org/17247
+(put 'defun 'easy-kill-forward-op (lambda (n)
+                                    (if (cl-minusp n)
+                                        (beginning-of-defun (- n))
+                                      (end-of-defun n))))
+
 ;;; Handler for `sexp' and `list'.
+
+(put 'list 'easy-kill-bounds-of-thing-at-point
+     #'easy-kill-bounds-of-list-at-point)
+
+(defun easy-kill-bounds-of-list-at-point ()
+  (let ((bos (and (nth 3 (syntax-ppss)) ;bounds of string
+                  (save-excursion
+                    (easy-kill-backward-up)
+                    (easy-kill-bounds-of-thing-at-point 'sexp))))
+        (b (bounds-of-thing-at-point 'list))
+        (b1-in-b2 (lambda (b1 b2)
+                    (and (> (car b1) (car b2))
+                         (< (cdr b1) (cdr b2))))))
+    (cond
+     ((not b)                  bos)
+     ((not bos)                b)
+     ((= (car b) (point))      bos)
+     ((funcall b1-in-b2 b bos) b)
+     (t                        bos))))
 
 (defvar up-list-fn)                     ; Dynamically bound
 
@@ -670,7 +682,7 @@ inspected."
           (easy-kill-backward-up))
       (`- (easy-kill-forward-down (point) (easy-kill-get start)))
       (_ (error "Unsupported argument `%s'" n)))
-    (bounds-of-thing-at-point 'sexp)))
+    (easy-kill-bounds-of-thing-at-point 'sexp)))
 
 (defun easy-kill-on-list (n)
   (pcase n
