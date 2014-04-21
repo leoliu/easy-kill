@@ -2,7 +2,7 @@
  Kill & Mark Things Easily in Emacs
 ====================================
  
-.. image:: https://travis-ci.org/leoliu/easy-kill.png?branch=master
+.. image:: https://travis-ci.org/leoliu/easy-kill.svg?branch=master
    :target: https://travis-ci.org/leoliu/easy-kill
    :align: right
    :alt: Travis CI build status
