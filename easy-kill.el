@@ -213,8 +213,6 @@ The value is the function's symbol if non-nil."
     (princ (substitute-command-keys "\\{easy-kill-base-map}"))))
 
 (defvar easy-kill-candidate nil)
-(defvar easy-kill-append nil)
-(defvar easy-kill-mark nil)
 
 (defun easy-kill--bounds ()
   (cons (overlay-start easy-kill-candidate)
@@ -243,18 +241,19 @@ Use `setf' to change property value."
                           (overlay-properties easy-kill-candidate)))
     (_       `(overlay-get easy-kill-candidate ',prop))))
 
-(defun easy-kill-init-candidate (n)
+(defun easy-kill-init-candidate (n &optional mark)
   ;; Manipulate `easy-kill-candidate' directly during initialisation;
   ;; should use `easy-kill-get' elsewhere.
   (let ((o (make-overlay (point) (point))))
-    (unless easy-kill-mark
+    (unless mark
       (overlay-put o 'face 'easy-kill-selection))
     (overlay-put o 'origin (point))
     (overlay-put o 'help-echo #'easy-kill-describe-candidate)
     ;; Use higher priority to avoid shadowing by, for example,
     ;; `hl-line-mode'.
     (overlay-put o 'priority 999)
-    (when easy-kill-mark
+    (when mark
+      (overlay-put o 'mark 'start)
       (let ((i (make-overlay (point) (point))))
         (overlay-put i 'priority (1+ (overlay-get o 'priority)))
         (overlay-put i 'face 'easy-kill-origin)
@@ -307,7 +306,9 @@ Otherwise, it is the value of the overlay's candidate property."
                                      (plist-get all k))
                          when v collect (format "%s:\t%s" k v)))
          (txt (mapconcat #'identity props "\n")))
-    (format "cmd:\t%s\n%s" (if easy-kill-mark "easy-mark" "easy-kill") txt)))
+    (format "cmd:\t%s\n%s"
+            (if (easy-kill-get mark) "easy-mark" "easy-kill")
+            txt)))
 
 (defun easy-kill-adjust-candidate (thing &optional beg end)
   "Adjust kill candidate to THING, BEG, END.
@@ -322,9 +323,11 @@ candidate property instead."
         (t
          (setf (easy-kill-get bounds) (cons (or beg (easy-kill-get start))
                                             (or end (easy-kill-get end))))))
-  (cond (easy-kill-mark (easy-kill-mark-region)
-                        (easy-kill-indicate-origin))
-        (t (easy-kill-interprogram-cut (easy-kill-candidate)))))
+  (cond ((easy-kill-get mark)
+         (easy-kill-mark-region)
+         (easy-kill-indicate-origin))
+        (t
+         (easy-kill-interprogram-cut (easy-kill-candidate)))))
 
 (defun easy-kill-save-candidate ()
   (unless (string= (easy-kill-candidate) "")
@@ -334,7 +337,7 @@ candidate property instead."
     ;; `easy-kill-adjust-candidate' already did that.
     (let ((interprogram-cut-function nil)
           (interprogram-paste-function nil))
-      (kill-new (if (and easy-kill-append kill-ring)
+      (kill-new (if (and (easy-kill-get append) kill-ring)
                     (cl-labels ((join (x sep y)
                                       (if sep (concat (easy-kill-trim x 'right)
                                                       sep
@@ -345,7 +348,7 @@ candidate property instead."
                                               easy-kill-alist :key #'car))
                             (easy-kill-candidate)))
                   (easy-kill-candidate))
-                easy-kill-append))
+                (easy-kill-get append)))
     t))
 
 (defun easy-kill-destroy-candidate ()
@@ -451,7 +454,7 @@ checked."
          (handler (and (not inhibit-handler)
                        (easy-kill-thing-handler (format "easy-kill-on-%s" thing)
                                                 major-mode))))
-    (when easy-kill-mark
+    (when (easy-kill-get mark)
       (goto-char (easy-kill-get origin)))
     (cond
      (handler (funcall handler n))
@@ -468,13 +471,13 @@ checked."
            (easy-kill-adjust-candidate thing start end)
            (unless (zerop n)
              (easy-kill-thing-forward (1- n)))))))
-    (when easy-kill-mark
+    (when (easy-kill-get mark)
       (easy-kill-adjust-candidate (easy-kill-get thing)))))
 
 (put 'easy-kill-abort 'easy-kill-exit t)
 (defun easy-kill-abort ()
   (interactive)
-  (when easy-kill-mark
+  (when (easy-kill-get mark)
     ;; The after-string may interfere with `goto-char'.
     (overlay-put (easy-kill-get origin-indicator) 'after-string nil)
     (goto-char (easy-kill-get origin))
@@ -513,7 +516,7 @@ checked."
 (put 'easy-kill-append 'easy-kill-exit t)
 (defun easy-kill-append ()
   (interactive)
-  (setq easy-kill-append t)
+  (setf (easy-kill-get append) t)
   (when (easy-kill-save-candidate)
     (easy-kill-interprogram-cut (car kill-ring))
     (setq deactivate-mark t)
@@ -537,7 +540,7 @@ checked."
                           (command-remapping cmd nil (list map)))))
                (ignore
                 (easy-kill-destroy-candidate)
-                (unless (or easy-kill-mark (easy-kill-exit-p this-command))
+                (unless (or (easy-kill-get mark) (easy-kill-exit-p this-command))
                   (easy-kill-save-candidate))))
          (error (message "%s:%s" this-command (error-message-string err))
                 nil))))))
@@ -563,9 +566,8 @@ Temporally activate additional key bindings as follows:
           (with-no-warnings
             (kill-ring-save (region-beginning) (region-end) t))
         (kill-ring-save (region-beginning) (region-end)))
-    (setq easy-kill-mark nil)
-    (setq easy-kill-append (eq last-command 'kill-region))
     (easy-kill-init-candidate n)
+    (setf (easy-kill-get append) (eq last-command 'kill-region))
     (when (zerop (buffer-size))
       (easy-kill-echo "Warn: `easy-kill' activated in empty buffer"))
     (easy-kill-activate-keymap)))
@@ -579,8 +581,7 @@ Temporally activate additional key bindings as follows:
   "Similar to `easy-kill' (which see) but for marking."
   (interactive "p")
   (let ((easy-kill-try-things easy-mark-try-things))
-    (setq easy-kill-mark t)
-    (easy-kill-init-candidate n)
+    (easy-kill-init-candidate n 'mark)
     (easy-kill-activate-keymap)
     (unless (easy-kill-get thing)
       (setf (easy-kill-get thing) 'sexp)
@@ -594,7 +595,7 @@ Temporally activate additional key bindings as follows:
   "Get `buffer-file-name' or `default-directory'.
 If N is zero, remove the directory part; -, remove the file name
 part; +, full path."
-  (if easy-kill-mark
+  (if (easy-kill-get mark)
       (easy-kill-echo "Not supported in `easy-mark'")
     (pcase (or buffer-file-name default-directory)
       (`nil (easy-kill-echo "No `buffer-file-name'"))
@@ -609,7 +610,7 @@ part; +, full path."
 
 (defun easy-kill-on-defun-name (_n)
   "Get current defun name."
-  (if easy-kill-mark
+  (if (easy-kill-get mark)
       (easy-kill-echo "Not supported in `easy-mark'")
     (pcase (add-log-current-defun)
       (`nil (easy-kill-echo "No `defun-name' at point"))
@@ -621,7 +622,7 @@ part; +, full path."
   "Get url at point or from char properties.
 Char properties `help-echo', `shr-url' and `w3m-href-anchor' are
 inspected."
-  (if (or easy-kill-mark (easy-kill-bounds-of-thing-at-point 'url))
+  (if (or (easy-kill-get mark) (easy-kill-bounds-of-thing-at-point 'url))
       (easy-kill-thing 'url nil t)
     (cl-labels ((get-url (text)
                          (when (stringp text)
