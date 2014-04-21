@@ -2,6 +2,11 @@
  Kill & Mark Things Easily in Emacs
 ====================================
  
+.. image:: https://travis-ci.org/leoliu/easy-kill.png?branch=master
+   :target: https://travis-ci.org/leoliu/easy-kill
+   :align: right
+   :alt: Travis CI build status
+
 Provide commands ``easy-kill`` and ``easy-mark`` to let users kill or
 mark things easily.
 
