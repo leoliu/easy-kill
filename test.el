@@ -253,6 +253,51 @@
       (should (string= "<author>Gambardella, Matthew</author>"
                        (easy-kill-candidate))))))
 
+(ert-deftest test-org-mode ()
+  (let ((org "#+title: This is a title
+#+author: Leo Liu
+
+This is an example of org document.
+
+* Life
+  One two three ....
+*** Fruits
+    1. apple
+    2. orange
+    3. mango
+
+* Sports cars
+  + Lamborghini
+  + Ferrari
+  + Porsche
+"))
+    (with-temp-buffer
+      (org-mode)
+      (insert org)
+      (goto-char (point-min))
+      (search-forward "This is")
+      (call-interactively 'easy-kill)
+      (easy-kill-thing 'sexp)
+      (easy-kill-expand)
+      (should (string= "#+title: This is a title\n" (easy-kill-candidate)))
+      (search-forward "Ferrari")
+      (call-interactively 'easy-kill)
+      (easy-kill-thing 'list)
+      (should (string= "Ferrari\n" (easy-kill-candidate)))
+      (easy-kill-expand)
+      (should (string= "  + Ferrari\n" (easy-kill-candidate)))
+      ;; org quirks
+      (search-backward "Lamborghini")
+      (call-interactively 'easy-kill)
+      (easy-kill-thing 'list)
+      ;; You get the whole plainlist here; see `org-element-at-point'.
+      (easy-kill-expand)
+      (should (string= "  + Lamborghini\n  + Ferrari\n  + Porsche\n"
+                       (easy-kill-candidate)))
+      (easy-kill-expand)
+      (should (string= "* Sports cars\n  + Lamborghini\n  + Ferrari\n  + Porsche\n"
+                       (easy-kill-candidate))))))
+
 (ert-deftest test-elisp-mode ()
   (let ((el "(defun set-hard-newline-properties (from to)
            (let ((sticky (get-text-property from 'rear-nonsticky)))

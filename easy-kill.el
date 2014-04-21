@@ -767,8 +767,8 @@ inspected."
   (pcase (or n 1)
     (`0 nil)
     (_ (ignore-errors (dotimes (_ (abs n)) (org-up-element)))
-       (when (cl-plusp n)
-         (goto-char (cdr (easy-kill-bounds-of-thing-at-point 'list)))))))
+       (goto-char (funcall (if (cl-minusp n) #'car #'cdr)
+                           (easy-kill-bounds-of-thing-at-point 'list))))))
 
 (defun easy-kill-on-list:org (n)
   (pcase n
