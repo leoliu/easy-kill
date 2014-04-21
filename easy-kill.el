@@ -645,7 +645,7 @@ inspected."
 (defun easy-kill-thing-forward-defun (&optional n)
   (pcase (or n 1)
     ((pred cl-minusp) (beginning-of-defun (- n)))
-    (_ (end-of-defun n))))
+    (n (end-of-defun n))))
 
 ;;; Handler for `sexp' and `list'.
 
@@ -753,7 +753,7 @@ inspected."
 (defun easy-kill-thing-forward-list:org (&optional n)
   (pcase (or n 1)
     (`0 nil)
-    (_ (dotimes (_ (abs n))
+    (n (dotimes (_ (abs n))
          (condition-case nil
              (if (cl-minusp n)
                  (org-backward-element)
@@ -766,9 +766,13 @@ inspected."
   ;; Make `org-up-element' more like `up-list'.
   (pcase (or n 1)
     (`0 nil)
-    (_ (ignore-errors (dotimes (_ (abs n)) (org-up-element)))
-       (goto-char (funcall (if (cl-minusp n) #'car #'cdr)
-                           (easy-kill-bounds-of-thing-at-point 'list))))))
+    (n (ignore-errors
+         (dotimes (_ (abs n))
+           (pcase (list (point) (easy-kill-bounds-of-thing-at-point 'list))
+             (`(,_beg (,_beg . ,_)) (org-up-element))
+             (`(,_ (,beg . ,_))     (goto-char beg)))))
+       (when (cl-plusp n)
+         (goto-char (cdr (easy-kill-bounds-of-thing-at-point 'list)))))))
 
 (defun easy-kill-on-list:org (n)
   (pcase n
