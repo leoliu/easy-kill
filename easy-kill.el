@@ -3,7 +3,8 @@
 ;; Copyright (C) 2013-2014  Free Software Foundation, Inc.
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
-;; Version: 0.9.3
+;; Version: 0.9.4
+;; Package-Type: simple
 ;; Package-Requires: ((emacs "24") (cl-lib "0.5"))
 ;; Keywords: killing, convenience
 ;; Created: 2013-08-12
@@ -86,6 +87,11 @@ Note: each element can also be (CHAR . THING) but this is
 deprecated."
   :type '(repeat (list character symbol
                        (choice string (const :tag "None" nil))))
+  :group 'killing)
+
+(defcustom easy-kill-unhighlight-key nil
+  "Key sequence if non-nil to unhighlight the kill candidate."
+  :type '(choice (const :tag "None" nil) key-sequence)
   :group 'killing)
 
 (defcustom easy-kill-try-things '(url email line)
@@ -171,6 +177,9 @@ The value is the function's symbol if non-nil."
   "Build the keymap according to `easy-kill-alist'."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map easy-kill-base-map)
+    (when easy-kill-unhighlight-key
+      (with-demoted-errors "easy-kill-unhighlight-key: %S"
+        (define-key map easy-kill-unhighlight-key 'easy-kill-unhighlight)))
     (mapc (lambda (c)
             ;; (define-key map (vector meta-prefix-char c) 'easy-kill-select)
             (define-key map (char-to-string c) 'easy-kill-thing))
@@ -339,10 +348,10 @@ candidate property instead."
           (interprogram-paste-function nil))
       (kill-new (if (and (easy-kill-get append) kill-ring)
                     (cl-labels ((join (x sep y)
-                                      (if sep (concat (easy-kill-trim x 'right)
-                                                      sep
-                                                      (easy-kill-trim y 'left))
-                                        (concat x y))))
+                                  (if sep (concat (easy-kill-trim x 'right)
+                                                  sep
+                                                  (easy-kill-trim y 'left))
+                                    (concat x y))))
                       (join (car kill-ring)
                             (nth 2 (cl-rassoc (easy-kill-get thing)
                                               easy-kill-alist :key #'car))
@@ -522,6 +531,11 @@ checked."
     (setq deactivate-mark t)
     (easy-kill-echo "Appended")))
 
+(put 'easy-kill-unhighlight 'easy-kill-exit t)
+(defun easy-kill-unhighlight ()
+  (interactive)
+  (easy-kill-echo "`%s' copied" (easy-kill-get thing)))
+
 (defun easy-kill-exit-p (cmd)
   (and (symbolp cmd) (get cmd 'easy-kill-exit)))
 
@@ -625,11 +639,11 @@ inspected."
   (if (or (easy-kill-get mark) (easy-kill-bounds-of-thing-at-point 'url))
       (easy-kill-thing 'url nil t)
     (cl-labels ((get-url (text)
-                         (when (stringp text)
-                           (with-temp-buffer
-                             (insert text)
-                             (pcase (easy-kill-bounds-of-thing-at-point 'url)
-                               (`(,beg . ,end) (buffer-substring beg end)))))))
+                  (when (stringp text)
+                    (with-temp-buffer
+                      (insert text)
+                      (pcase (easy-kill-bounds-of-thing-at-point 'url)
+                        (`(,beg . ,end) (buffer-substring beg end)))))))
       (cl-dolist (p '(help-echo shr-url w3m-href-anchor))
         (pcase (get-char-property-and-overlay (point) p)
           (`(,text . ,ov)

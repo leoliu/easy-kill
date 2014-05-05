@@ -95,6 +95,11 @@ convention, or by defining new functions named like
 NEWS
 ~~~~
 
+0.9.4
++++++
+
+#. New user variable ``easy-kill-unhighlight-key``.
+
 0.9.3
 +++++
 
