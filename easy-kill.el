@@ -122,6 +122,7 @@ deprecated."
     (define-key map "?" 'easy-kill-help)
     (define-key map [remap set-mark-command] 'easy-kill-mark-region)
     (define-key map [remap kill-region] 'easy-kill-region)
+    (define-key map [remap delete-region] 'easy-kill-delete-region)
     (define-key map [remap keyboard-quit] 'easy-kill-abort)
     (define-key map [remap exchange-point-and-mark]
       'easy-kill-exchange-point-and-mark)
@@ -530,6 +531,12 @@ checked."
     (easy-kill-interprogram-cut (car kill-ring))
     (setq deactivate-mark t)
     (easy-kill-echo "Appended")))
+
+(put 'easy-kill-delete-region 'easy-kill-exit t)
+(defun easy-kill-delete-region ()
+  (interactive)
+  (pcase (easy-kill-get bounds)
+    (`(,beg . ,end) (delete-region beg end))))
 
 (put 'easy-kill-unhighlight 'easy-kill-exit t)
 (defun easy-kill-unhighlight ()
