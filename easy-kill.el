@@ -50,7 +50,10 @@
                              (?d defun          "\n\n")
                              (?D defun-name     " ")
                              (?e line           "\n")
-                             (?b buffer-file-name))
+                             (?b buffer-file-name)
+                             (?a buffer)
+                             (?< buffer-before-point)
+                             (?> buffer-after-point))
   "A list of (CHAR THING APPEND).
 CHAR is used immediately following `easy-kill' to select THING.
 APPEND is optional and if non-nil specifies the separator (a
@@ -727,6 +730,38 @@ inspected."
      (unwind-protect (easy-kill-thing 'list n)
        (setf (easy-kill-get thing) 'sexp)))
     (_ (easy-kill-thing 'sexp n t))))
+
+(defun easy-kill-on-buffer (_n)
+  "Select the whole buffer."
+  (easy-kill-adjust-candidate 'buffer (point-min) (point-max)))
+
+(defun easy-kill-on-buffer-after-point (n)
+  "Select buffer contents after point.
+If N is +, extend to the beginning of the current line.
+If N is -, shrink to the beginning of the next line."
+  (easy-kill-adjust-candidate 'buffer-after-point
+                              (pcase n
+                                (`+
+                                 (point-at-bol))
+                                (`-
+                                 (point-at-bol 2))
+                                (_
+                                 (point)))
+                              (point-max)))
+
+(defun easy-kill-on-buffer-before-point (n)
+  "Select buffer contents before point.
+If N is +, extend to the end of the current line.
+If N is -, shrink to the beginning of the current line."
+  (easy-kill-adjust-candidate 'buffer-before-point
+                              (point-min)
+                              (pcase n
+                                (`+
+                                 (point-at-bol 2))
+                                (`-
+                                 (point-at-bol))
+                                (_
+                                 (point)))))
 
 ;;; nxml support for list-wise +/-
 
