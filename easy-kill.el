@@ -42,6 +42,7 @@
 
 (require 'cl-lib)
 (require 'thingatpt)
+(require 'gv nil t)                     ;For `defsetf'.
 (eval-when-compile (require 'cl))       ;For `defsetf'.
 
 (eval-and-compile
