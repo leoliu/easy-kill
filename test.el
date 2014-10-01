@@ -294,7 +294,8 @@ This is an example of org document.
   + Porsche
 "))
     (with-temp-buffer
-      (org-mode)
+      ;; http://debbugs.gnu.org/17724
+      (ignore-errors (org-mode))
       (insert org)
       (goto-char (point-min))
       (search-forward "This is")

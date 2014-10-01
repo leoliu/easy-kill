@@ -72,12 +72,13 @@
         (add-hook 'pre-command-hook clearfunsym)
         (push alist emulation-mode-map-alists))))))
 
-(defcustom easy-kill-alist '((?w word     " ")
-                             (?s sexp     "\n")
-                             (?l list     "\n")
-                             (?f filename "\n")
-                             (?d defun    "\n\n")
-                             (?e line     "\n")
+(defcustom easy-kill-alist '((?w word           " ")
+                             (?s sexp           "\n")
+                             (?l list           "\n")
+                             (?f filename       "\n")
+                             (?d defun          "\n\n")
+                             (?D defun-name     " ")
+                             (?e line           "\n")
                              (?b buffer-file-name))
   "A list of (CHAR THING APPEND).
 CHAR is used immediately following `easy-kill' to select THING.

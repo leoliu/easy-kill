@@ -29,6 +29,7 @@ active region, url, email and finally current line (See
 #. ``M-w s``: save sexp at point
 #. ``M-w l``: save list at point (enclosing sexp)
 #. ``M-w d``: save defun at point
+#. ``M-w D``: save current defun name
 #. ``M-w f``: save file at point
 #. ``M-w b``: save ``buffer-file-name`` or ``default-directory``.
    ``-`` changes the kill to the directory name, ``+`` to full name
@@ -99,6 +100,7 @@ NEWS
 +++++
 
 #. New user variable ``easy-kill-unhighlight-key``.
+#. key ``D`` selects current defun name.
 
 0.9.3
 +++++
