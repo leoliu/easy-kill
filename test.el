@@ -82,6 +82,18 @@
     (call-interactively #'easy-kill-append)
     (should (string= (car kill-ring) "abc"))))
 
+(ert-deftest test-easy-kill-delete-region ()
+  (with-temp-buffer
+    (insert "abc def ghi")
+    (backward-word 2)
+    (kill-new "test")
+    (easy-kill)
+    (easy-kill-thing 'word)
+    (call-interactively #'easy-kill-delete-region)
+    (should (string= (car kill-ring) "test"))
+    (should (string= (buffer-substring-no-properties (point-min) (point)) "abc "))
+    (should (string= (buffer-substring-no-properties (point) (point-max)) " ghi"))))
+
 ;;; Make sure the old format of easy-kill-alist is still supported.
 (ert-deftest test-old-easy-kill-alist ()
   (let ((easy-kill-alist '((?w . word)
