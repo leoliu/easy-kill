@@ -1,6 +1,6 @@
 ;;; easy-kill.el --- kill & mark things easily       -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2013-2014  Free Software Foundation, Inc.
+;; Copyright (C) 2013-2015  Free Software Foundation, Inc.
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
 ;; Version: 0.9.4
@@ -413,11 +413,17 @@ checked."
 
 (defun easy-kill-bounds-of-thing-at-point (thing)
   "Easy Kill wrapper for `bounds-of-thing-at-point'."
-  (pcase (easy-kill-thing-handler
-          (format "easy-kill-bounds-of-%s-at-point" thing)
-          major-mode)
-    ((and (pred functionp) fn) (funcall fn))
-    (_ (bounds-of-thing-at-point thing))))
+  ;; Work around a bug (fixed in 25.1, commit: 7a94f28a) in
+  ;; `thing-at-point-bounds-of-url-at-point' that could return a
+  ;; boundary not containing current point.
+  (cl-flet ((chk (bound)
+              (pcase-let ((`(,b . ,e) bound))
+                (and b e (<= b (point) e) (cons b e)))))
+    (pcase (easy-kill-thing-handler
+            (format "easy-kill-bounds-of-%s-at-point" thing)
+            major-mode)
+      ((and (pred functionp) fn) (chk (funcall fn)))
+      (_ (chk (bounds-of-thing-at-point thing))))))
 
 (defun easy-kill-thing-forward-1 (thing &optional n)
   "Easy Kill wrapper for `forward-thing'."
