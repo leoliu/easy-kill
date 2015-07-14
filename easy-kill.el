@@ -419,7 +419,9 @@ checked."
   ;; boundary not containing current point.
   (cl-flet ((chk (bound)
               (pcase-let ((`(,b . ,e) bound))
-                (and b e (<= b (point) e) (cons b e)))))
+                (and b e
+                     (<= b (point)) (<= (point) e)
+                     (cons b e)))))
     (pcase (easy-kill-thing-handler
             (format "easy-kill-bounds-of-%s-at-point" thing)
             major-mode)
