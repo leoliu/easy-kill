@@ -551,7 +551,8 @@ checked."
 (put 'easy-kill-unhighlight 'easy-kill-exit t)
 (defun easy-kill-unhighlight ()
   (interactive)
-  (easy-kill-echo "`%s' copied" (easy-kill-get thing)))
+  (and (easy-kill-save-candidate)
+       (easy-kill-echo "`%s' copied" (easy-kill-get thing))))
 
 (defun easy-kill-exit-p (cmd)
   (and (symbolp cmd) (get cmd 'easy-kill-exit)))
