@@ -41,7 +41,7 @@ The following keys modify the selection:
    ``M-w d @`` will append current function to last kill.
 #. ``C-w``: kill selection and exit
 #. ``+``, ``-`` and ``1..9``: expand/shrink selection
-#. ``0`` shrink the selection to the intitial size i.e. before any
+#. ``0`` shrink the selection to the initial size i.e. before any
    expansion
 #. ``C-SPC``: turn selection into an active region
 #. ``C-g``: abort
@@ -83,7 +83,7 @@ Install
 ~~~~~~~
 
 ``easy-kill`` is part of GNU ELPA and is also available on `MELPA
-<http://melpa.milkbox.net/#/easy-kill>`_.
+<https://melpa.org/#/easy-kill>`_.
 
 Extensions
 ~~~~~~~~~~
