@@ -226,6 +226,9 @@ The value is the function's symbol if non-nil."
 
 (defvar easy-kill-candidate nil)
 
+(with-eval-after-load 'multiple-cursors
+  (add-to-list 'mc/cursor-specific-vars 'easy-kill-candidate))
+
 (defun easy-kill--bounds ()
   (cons (overlay-start easy-kill-candidate)
         (overlay-end easy-kill-candidate)))
