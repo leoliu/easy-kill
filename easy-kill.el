@@ -863,6 +863,14 @@ inspected."
 (with-eval-after-load 'multiple-cursors
   (add-to-list 'mc/cursor-specific-vars 'easy-kill-candidate)
 
+  (defadvice easy-kill-destroy-candidate
+    (around multiple-cursors-support activate)
+    (if (bound-and-true-p multiple-cursors-mode)
+        (mc/for-each-cursor-ordered
+         (mc/restore-state-from-overlay cursor)
+         ad-do-it)
+      ad-do-it))
+
   (dolist (func '(easy-kill-help))
     (add-to-list 'mc/cmds-to-run-once func))
   (dolist (func '(easy-kill
