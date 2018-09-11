@@ -860,5 +860,32 @@ inspected."
             (format "%s (%s)" (easy-kill-get thing) (js2-node-short-name node))))
     (easy-kill-echo "%s" (js2-node-short-name node))))
 
+(with-eval-after-load 'multiple-cursors
+  (add-to-list 'mc/cursor-specific-vars 'easy-kill-candidate)
+
+  (defadvice easy-kill-destroy-candidate
+    (around multiple-cursors-support activate)
+    (if (bound-and-true-p multiple-cursors-mode)
+        (mc/for-each-cursor-ordered
+         (mc/restore-state-from-overlay cursor)
+         ad-do-it)
+      ad-do-it))
+
+  (dolist (func '(easy-kill-help))
+    (add-to-list 'mc/cmds-to-run-once func))
+  (dolist (func '(easy-kill
+                  easy-kill-abort
+                  easy-kill-append
+                  easy-kill-delete-region
+                  easy-kill-digit-argument
+                  easy-kill-expand
+                  easy-kill-mark-region
+                  easy-kill-region
+                  easy-kill-shrink
+                  easy-kill-thing
+                  easy-kill-unhighlight
+                  easy-mark))
+    (add-to-list 'mc/cmds-to-run-for-all func)))
+
 (provide 'easy-kill)
 ;;; easy-kill.el ends here
