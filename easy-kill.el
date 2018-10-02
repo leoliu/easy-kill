@@ -1,6 +1,6 @@
 ;;; easy-kill.el --- kill & mark things easily       -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2013-2015  Free Software Foundation, Inc.
+;; Copyright (C) 2013-2018  Free Software Foundation, Inc.
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
 ;; Version: 0.9.4
@@ -119,6 +119,7 @@ deprecated."
     (define-key map "-" 'easy-kill-shrink)
     (define-key map "+" 'easy-kill-expand)
     (define-key map "=" 'easy-kill-expand)
+    (define-key map " " 'easy-kill-cycle)
     (define-key map "@" 'easy-kill-append)
     ;; Note: didn't pick C-h because it is a very useful prefix key.
     (define-key map "?" 'easy-kill-help)
@@ -379,6 +380,23 @@ candidate property instead."
 (defun easy-kill-expand ()
   (interactive)
   (easy-kill-thing nil '+))
+
+(defun easy-kill-cycle (&optional thing)
+  "Cycle through things in `easy-kill-alist'."
+  (interactive)
+  (let ((next (easy-kill-cycle-next (or thing (easy-kill-get thing)))))
+    (easy-kill-thing next)
+    (if (eq next (easy-kill-get thing))
+        (easy-kill-echo "%s" next)
+      ;; NEXT not killable continue cycle.
+      (easy-kill-cycle next))))
+
+(defun easy-kill-cycle-next (thing)
+  (cl-flet ((thing-name (thing)
+              (if (symbolp (cdr thing)) (cdr thing) (cl-second thing))))
+    (cl-loop for (head . tail) on easy-kill-alist
+             when (eq thing (thing-name head))
+             return (thing-name (car (or tail easy-kill-alist))))))
 
 (defun easy-kill-digit-argument (n)
   "Expand selection by N number of things.

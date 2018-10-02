@@ -43,6 +43,7 @@ The following keys modify the selection:
 #. ``+``, ``-`` and ``1..9``: expand/shrink selection
 #. ``0`` shrink the selection to the initial size i.e. before any
    expansion
+#. ``SPC``: cycle through things in ``easy-kill-alist``
 #. ``C-SPC``: turn selection into an active region
 #. ``C-g``: abort
 #. ``?``: help
@@ -101,6 +102,7 @@ NEWS
 
 #. New user variable ``easy-kill-unhighlight-key``.
 #. key ``D`` selects current defun name.
+#. Key ``SPC`` selects things in ``easy-kill-alist`` in turn.
 
 0.9.3
 +++++
