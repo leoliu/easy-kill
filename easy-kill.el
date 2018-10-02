@@ -136,6 +136,13 @@ deprecated."
 
 (defvar easy-kill-inhibit-message nil)
 
+(defmacro easy-kill-defun (name arglist &optional docstring &rest body)
+  "Like `defun' but NAME has property `easy-kill-exit' set to t.
+\n\n(fn NAME ARGLIST &optional DOCSTRING DECL &rest BODY)"
+  (declare (doc-string 3) (indent defun))
+  `(progn (put ',name 'easy-kill-exit t)
+          (defun ,name ,arglist ,docstring ,@body)))
+
 (defun easy-kill-echo (format-string &rest args)
   "Same as `message' except not writing to *Messages* buffer.
 Do nothing if `easy-kill-inhibit-message' is non-nil."
@@ -512,8 +519,7 @@ checked."
     (when (easy-kill-get mark)
       (easy-kill-adjust-candidate (easy-kill-get thing)))))
 
-(put 'easy-kill-abort 'easy-kill-exit t)
-(defun easy-kill-abort ()
+(easy-kill-defun easy-kill-abort ()
   (interactive)
   (when (easy-kill-get mark)
     ;; The after-string may interfere with `goto-char'.
@@ -522,16 +528,14 @@ checked."
     (setq deactivate-mark t))
   (ding))
 
-(put 'easy-kill-region 'easy-kill-exit t)
-(defun easy-kill-region ()
+(easy-kill-defun easy-kill-region ()
   "Kill current selection and exit."
   (interactive "*")
   (pcase (easy-kill-get bounds)
     (`(,_x . ,_x) (easy-kill-echo "Empty region"))
     (`(,beg . ,end) (kill-region beg end))))
 
-(put 'easy-kill-mark-region 'easy-kill-exit t)
-(defun easy-kill-mark-region ()
+(easy-kill-defun easy-kill-mark-region ()
   (interactive)
   (pcase (easy-kill-get bounds)
     (`(,_x . ,_x)
@@ -551,8 +555,7 @@ checked."
         (if (eq (point) (easy-kill-get start))
             'end 'start)))
 
-(put 'easy-kill-append 'easy-kill-exit t)
-(defun easy-kill-append ()
+(easy-kill-defun easy-kill-append ()
   (interactive)
   (setf (easy-kill-get append) t)
   (when (easy-kill-save-candidate)
@@ -560,14 +563,12 @@ checked."
     (setq deactivate-mark t)
     (easy-kill-echo "Appended")))
 
-(put 'easy-kill-delete-region 'easy-kill-exit t)
-(defun easy-kill-delete-region ()
+(easy-kill-defun easy-kill-delete-region ()
   (interactive)
   (pcase (easy-kill-get bounds)
     (`(,beg . ,end) (delete-region beg end))))
 
-(put 'easy-kill-unhighlight 'easy-kill-exit t)
-(defun easy-kill-unhighlight ()
+(easy-kill-defun easy-kill-unhighlight ()
   (interactive)
   (and (easy-kill-save-candidate)
        (easy-kill-echo "`%s' copied" (easy-kill-get thing))))
