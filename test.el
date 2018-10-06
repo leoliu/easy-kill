@@ -443,4 +443,25 @@ some of the ways to customize it;
       (should (= (mark t) (easy-kill-get start)))
       (should (= (point) (easy-kill-get end))))))
 
+(ert-deftest test-easy-kill-cycle ()
+  (let ((easy-kill-alist '((?w word) (?s sexp))))
+   (with-temp-buffer
+     (insert "a@example.com")
+     (call-interactively 'easy-kill)
+     (should (eq 'email (easy-kill-get thing)))
+
+     (call-interactively 'easy-kill-cycle)
+     (should (eq 'word (easy-kill-get thing)))
+     (call-interactively 'easy-kill-cycle)
+     (should (eq 'sexp (easy-kill-get thing)))
+     (call-interactively 'easy-kill-cycle)
+     (should (eq 'word (easy-kill-get thing)))
+
+     (let ((easy-kill-cycle-ignored '(sexp)))
+       (call-interactively 'easy-kill-cycle))
+     (should (eq 'word (easy-kill-get thing)))
+
+     (let ((easy-kill-cycle-ignored '(word sexp)))
+       (should-error (call-interactively 'easy-kill-cycle))))))
+
 ;;; test.el ends here

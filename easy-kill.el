@@ -91,6 +91,11 @@ deprecated."
                        (choice string (const :tag "None" nil))))
   :group 'killing)
 
+(defcustom easy-kill-cycle-ignored nil
+  "A list of things that `easy-kill-cycle' should ignore."
+  :type '(repeat symbol)
+  :group 'killing)
+
 (defcustom easy-kill-unhighlight-key nil
   "Key sequence if non-nil to unhighlight the kill candidate."
   :type '(choice (const :tag "None" nil) key-sequence)
@@ -389,21 +394,28 @@ candidate property instead."
   (easy-kill-thing nil '+))
 
 (defun easy-kill-cycle (&optional thing)
-  "Cycle through things in `easy-kill-alist'."
+  "Cycle through things in `easy-kill-alist'.
+A thing is opted out of cycling if in `easy-kill-cycle-ignored'."
   (interactive)
-  (let ((next (easy-kill-cycle-next (or thing (easy-kill-get thing)))))
+  (let ((next (easy-kill-cycle-next (or thing (easy-kill-get thing))
+                                    (length easy-kill-cycle-ignored))))
     (easy-kill-thing next)
     (if (eq next (easy-kill-get thing))
         (easy-kill-echo "%s" next)
       ;; NEXT not killable continue cycle.
       (easy-kill-cycle next))))
 
-(defun easy-kill-cycle-next (thing)
+(defun easy-kill-cycle-next (thing depth)
   (cl-flet ((thing-name (thing)
               (if (symbolp (cdr thing)) (cdr thing) (cl-second thing))))
-    (cl-loop for (head . tail) on easy-kill-alist
-             when (eq thing (thing-name head))
-             return (thing-name (car (or tail easy-kill-alist))))))
+    (let ((next (thing-name
+                 (car (or (cl-loop for (head . tail) on easy-kill-alist
+                                   when (eq thing (thing-name head))
+                                   return tail)
+                          easy-kill-alist)))))
+      (cond ((not (memq next easy-kill-cycle-ignored)) next)
+            ((> depth 0) (easy-kill-cycle-next next (1- depth)))
+            (t (user-error "Nothing to cycle"))))))
 
 (defun easy-kill-digit-argument (n)
   "Expand selection by N number of things.
@@ -608,6 +620,7 @@ Temporally activate additional key bindings as follows:
   @       => append selection to previous kill;
   ?       => help;
   C-w     => kill selection;
+  SPC     => cycle through things in `easy-kill-alist';
   C-SPC   => turn selection into an active region;
   C-g     => abort;
   others  => save selection and exit."
