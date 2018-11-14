@@ -562,10 +562,11 @@ checked."
 
 (defun easy-kill-exchange-point-and-mark ()
   (interactive)
-  (exchange-point-and-mark)
-  (setf (easy-kill-get mark)
-        (if (eq (point) (easy-kill-get start))
-            'end 'start)))
+  (when (easy-kill-get mark)
+    (exchange-point-and-mark)
+    (setf (easy-kill-get mark)
+          (if (eq (point) (easy-kill-get start))
+              'end 'start))))
 
 (easy-kill-defun easy-kill-append ()
   (interactive)
