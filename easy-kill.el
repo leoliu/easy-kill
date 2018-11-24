@@ -40,6 +40,13 @@
 
 ;;; Code:
 
+;;; TODO:
+;;;;;;; Add optional param to e-k-t-f to select the edge
+;;;;;;;; Defaults to 'forward'
+;;;;;;; how to only move 1 space forwards/back
+;;;;;;; how to toggle between left edge and right edge?
+
+
 (require 'cl-lib)
 (require 'thingatpt)
 (require 'gv nil t)                     ;For `defsetf'.
@@ -123,6 +130,8 @@ deprecated."
   (let ((map (make-sparse-keymap)))
     (define-key map "-" 'easy-kill-shrink)
     (define-key map "+" 'easy-kill-expand)
+    (define-key map "[" 'easy-kill-shrink-backward-edge)
+    (define-key map "]" 'easy-kill-expand-backward-edge)
     (define-key map "=" 'easy-kill-expand)
     (define-key map " " 'easy-kill-cycle)
     (define-key map "@" 'easy-kill-append)
@@ -177,6 +186,7 @@ The value is the function's symbol if non-nil."
     (symbol (and (fboundp name) name))))
 
 (defun easy-kill-pair-to-list (pair)
+  (message "easy-kill-pair-to-list\tpair=%s" pair)
   (pcase pair
     (`nil nil)
     (`(,beg . ,end) (list beg end))
@@ -341,13 +351,19 @@ If BEG is a string, shrink the overlay to zero length and set its
 candidate property instead."
   (setf (easy-kill-get thing) thing)
   (cond ((stringp beg)
+	 (message "e-k-adjust-candidate [string]\tbeg=%s" beg)
          (setf (easy-kill-get bounds) (cons (point) (point)))
          (setf (easy-kill-get candidate) beg)
          (let ((easy-kill-inhibit-message nil))
            (easy-kill-echo "%s" beg)))
         (t
+	 (message "e-k-adjust-candidate t\tbeg=%s\tend=%s\texp=%s" beg end
+		  (cons (or beg (easy-kill-get start))
+                        (or end (easy-kill-get end))) )
          (setf (easy-kill-get bounds) (cons (or beg (easy-kill-get start))
                                             (or end (easy-kill-get end))))))
+  (message "\tBounds? = %s" (easy-kill-get bounds) )
+  (message "\tMark? = %s" (easy-kill-get mark))
   (cond ((easy-kill-get mark)
          (easy-kill-mark-region)
          (easy-kill-indicate-origin))
@@ -364,10 +380,10 @@ candidate property instead."
           (interprogram-paste-function nil))
       (kill-new (if (and (easy-kill-get append) kill-ring)
                     (cl-labels ((join (x sep y)
-                                  (if sep (concat (easy-kill-trim x 'right)
-                                                  sep
-                                                  (easy-kill-trim y 'left))
-                                    (concat x y))))
+                                      (if sep (concat (easy-kill-trim x 'right)
+                                                      sep
+                                                      (easy-kill-trim y 'left))
+					(concat x y))))
                       (join (car kill-ring)
                             (nth 2 (cl-rassoc (easy-kill-get thing)
                                               easy-kill-alist :key #'car))
@@ -392,6 +408,10 @@ candidate property instead."
 (defun easy-kill-expand ()
   (interactive)
   (easy-kill-thing nil '+))
+
+(defun easy-kill-expand-backward-edge ()
+  (interactive)
+  (easy-kill-thing nil '+ nil 'backward)) 
 
 (defun easy-kill-cycle (&optional thing)
   "Cycle through things in `easy-kill-alist'.
@@ -433,6 +453,10 @@ expansion."
   (interactive)
   (easy-kill-thing nil '-))
 
+(defun easy-kill-shrink-backward-edge ()
+  (interactive)
+  (easy-kill-thing nil '- nil 'backward)) 
+
 (defun easy-kill-thing-handler (base mode)
   "Get the handler for MODE or nil if none is defined.
 For example, if BASE is \"easy-kill-on-list\" and MODE is
@@ -454,11 +478,12 @@ checked."
   ;; Work around a bug (fixed in 25.1, commit: 7a94f28a) in
   ;; `thing-at-point-bounds-of-url-at-point' that could return a
   ;; boundary not containing current point.
+  (message "e-k-bounds-of-thing-at-point\tthing=%s\tpoint=%s" thing (point))
   (cl-flet ((chk (bound)
-              (pcase-let ((`(,b . ,e) bound))
-                (and b e
-                     (<= b (point)) (<= (point) e)
-                     (cons b e)))))
+		 (pcase-let ((`(,b . ,e) bound))
+                   (and b e
+			(<= b (point)) (<= (point) e)
+			(cons b e)))))
     (pcase (easy-kill-thing-handler
             (format "easy-kill-bounds-of-%s-at-point" thing)
             major-mode)
@@ -467,6 +492,7 @@ checked."
 
 (defun easy-kill-thing-forward-1 (thing &optional n)
   "Easy Kill wrapper for `forward-thing'."
+  (message "e-k-thing-forward-1 thing=%s n=%s" thing n)
   (pcase (easy-kill-thing-handler
           (format "easy-kill-thing-forward-%s" thing)
           major-mode)
@@ -474,38 +500,71 @@ checked."
     (_ (forward-thing thing n))))
 
 ;; Helper for `easy-kill-thing'.
-(defun easy-kill-thing-forward (n)
+
+;; which-edge: 
+;; nil or 'forward is the forward edge
+;;      (the right-most one on RTL text)
+;; 'backward  is the backward edge
+;;      (the left-most one on RTL text)
+;; forward/backward is defined according to https://www.gnu.org/software/emacs/manual/html_node/emacs/Bidirectional-Editing.html
+;;
+(defun easy-kill-thing-forward (n &optional which-edge)
+  (message "In easy-kill-thing-forward\tn=%s\twhich-edge=%s\tpoint=%s" n which-edge (point))
   (when (and (easy-kill-get thing) (/= n 0))
     (let* ((step (if (cl-minusp n) -1 +1))
            (thing (easy-kill-get thing))
            (bounds1 (or (easy-kill-pair-to-list
                          (easy-kill-bounds-of-thing-at-point thing))
                         (list (point) (point))))
+	   (origin-thing-start (car bounds1))
+	   (origin-thing-end (car (last bounds1)))
            (start (easy-kill-get start))
            (end (easy-kill-get end))
-           (front (or (car (cl-set-difference (list end start) bounds1))
-                      (pcase step
-                        (`-1 start)
-                        (`1 end))))
-           (new-front (save-excursion
-                        (goto-char front)
-                        (with-demoted-errors
-                          (dotimes (_ (abs n))
-                            (easy-kill-thing-forward-1 thing step)))
-                        (point))))
+           (front (cond
+		   (  (eq which-edge 'backward)
+		      (message "\tBackward edge!")
+		      start)
+		   (  t
+		      (message "\tForward edges")
+		      end)))
+	   (UNUSED (progn
+		     (message "\tstart=%s\tend=%s\tbounds1=%s\tfront=%s\tpoint=%s" start end bounds1 front (point) )
+		     (message "\torigin-thing-start=%s\torigin-thing-end=%s" origin-thing-start origin-thing-end)
+		     ) )
+	   (new-front (save-excursion
+			(goto-char front)
+			(message "\tstarting point to %s" (point))
+			(with-demoted-errors
+			    (dotimes (_ (abs n))
+                              (easy-kill-thing-forward-1 thing step)))
+			(message "\tmoved point to %s" (point))
+			(point))))
+      (message "\tbefore adjust candidate\tstart=%s\tend=%s\tfront = %s new-front=%s" start end front new-front)
+      ;;      (message "\tOLD list=%s" (sort (cons new-front bounds1) #'< ))
+      (message "(max new-front origin-thing-end )=%s" (max new-front origin-thing-end ))
       (pcase (and (/= front new-front)
-                  (sort (cons new-front bounds1) #'<))
-        (`(,start ,_ ,end)
-         (easy-kill-adjust-candidate thing start end)
-         t)))))
+		  (cond
+		   ( (eq which-edge 'backward)
+		     (if (cl-minusp n)
+			 (list new-front end))
+		     (list (min new-front origin-thing-start) end ))
+		   ( (eq which-edge nil)
+		     (if (cl-minusp n)
+			 (list start (max new-front origin-thing-end ))
+		       (list start new-front)))))
+	(`(,start ,end)
+	 (message "about to adjust candidate\tstart=%s\tend=%s" start end)
+	 (easy-kill-adjust-candidate thing start end)
+	 t) ) ) ) )
 
-(defun easy-kill-thing (&optional thing n inhibit-handler)
+(defun easy-kill-thing (&optional thing n inhibit-handler which-edge)
   ;; N can be -, + and digits
   (interactive
    (list (pcase (assq last-command-event easy-kill-alist)
            (`(,_ ,th . ,_) th)
            (`(,_ . ,th) th))
          (prefix-numeric-value current-prefix-arg)))
+  (message "======================== easy-kill-thing =======================")
   (let* ((thing (or thing (easy-kill-get thing)))
          (n (or n 1))
          (handler (and (not inhibit-handler)
@@ -521,13 +580,15 @@ checked."
       (easy-kill-thing-forward (pcase n
                                  (`+ 1)
                                  (`- -1)
-                                 (_ n))))
+                                 (_ n))
+			       which-edge
+			       ))
      (t (pcase (easy-kill-bounds-of-thing-at-point thing)
           (`nil (easy-kill-echo "No `%s'" thing))
           (`(,start . ,end)
            (easy-kill-adjust-candidate thing start end)
            (unless (zerop n)
-             (easy-kill-thing-forward (1- n)))))))
+             (easy-kill-thing-forward (1- n) which-edge))))))
     (when (easy-kill-get mark)
       (easy-kill-adjust-candidate (easy-kill-get thing)))))
 
@@ -690,11 +751,11 @@ inspected."
   (if (or (easy-kill-get mark) (easy-kill-bounds-of-thing-at-point 'url))
       (easy-kill-thing 'url nil t)
     (cl-labels ((get-url (text)
-                  (when (stringp text)
-                    (with-temp-buffer
-                      (insert text)
-                      (pcase (easy-kill-bounds-of-thing-at-point 'url)
-                        (`(,beg . ,end) (buffer-substring beg end)))))))
+			 (when (stringp text)
+			   (with-temp-buffer
+			     (insert text)
+			     (pcase (easy-kill-bounds-of-thing-at-point 'url)
+                               (`(,beg . ,end) (buffer-substring beg end)))))))
       (cl-dolist (p '(help-echo shr-url w3m-href-anchor))
         (pcase (get-char-property-and-overlay (point) p)
           (`(,text . ,ov)
