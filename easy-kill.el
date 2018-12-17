@@ -40,11 +40,6 @@
 
 ;;; Code:
 
-;;; TODO:
-;;;;;;; Add optional param to e-k-t-f to select the edge
-;;;;;;;; Defaults to 'forward'
-;;;;;;; how to only move 1 space forwards/back
-
 
 (require 'cl-lib)
 (require 'thingatpt)
