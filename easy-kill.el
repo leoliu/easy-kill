@@ -44,7 +44,6 @@
 ;;;;;;; Add optional param to e-k-t-f to select the edge
 ;;;;;;;; Defaults to 'forward'
 ;;;;;;; how to only move 1 space forwards/back
-;;;;;;; how to toggle between left edge and right edge?
 
 
 (require 'cl-lib)
@@ -186,7 +185,6 @@ The value is the function's symbol if non-nil."
     (symbol (and (fboundp name) name))))
 
 (defun easy-kill-pair-to-list (pair)
-  (message "easy-kill-pair-to-list\tpair=%s" pair)
   (pcase pair
     (`nil nil)
     (`(,beg . ,end) (list beg end))
@@ -351,19 +349,13 @@ If BEG is a string, shrink the overlay to zero length and set its
 candidate property instead."
   (setf (easy-kill-get thing) thing)
   (cond ((stringp beg)
-	 (message "e-k-adjust-candidate [string]\tbeg=%s" beg)
          (setf (easy-kill-get bounds) (cons (point) (point)))
          (setf (easy-kill-get candidate) beg)
          (let ((easy-kill-inhibit-message nil))
            (easy-kill-echo "%s" beg)))
         (t
-	 (message "e-k-adjust-candidate t\tbeg=%s\tend=%s\texp=%s" beg end
-		  (cons (or beg (easy-kill-get start))
-                        (or end (easy-kill-get end))) )
          (setf (easy-kill-get bounds) (cons (or beg (easy-kill-get start))
                                             (or end (easy-kill-get end))))))
-  (message "\tBounds? = %s" (easy-kill-get bounds) )
-  (message "\tMark? = %s" (easy-kill-get mark))
   (cond ((easy-kill-get mark)
          (easy-kill-mark-region)
          (easy-kill-indicate-origin))
@@ -478,7 +470,6 @@ checked."
   ;; Work around a bug (fixed in 25.1, commit: 7a94f28a) in
   ;; `thing-at-point-bounds-of-url-at-point' that could return a
   ;; boundary not containing current point.
-  (message "e-k-bounds-of-thing-at-point\tthing=%s\tpoint=%s" thing (point))
   (cl-flet ((chk (bound)
 		 (pcase-let ((`(,b . ,e) bound))
                    (and b e
@@ -492,7 +483,6 @@ checked."
 
 (defun easy-kill-thing-forward-1 (thing &optional n)
   "Easy Kill wrapper for `forward-thing'."
-  (message "e-k-thing-forward-1 thing=%s n=%s" thing n)
   (pcase (easy-kill-thing-handler
           (format "easy-kill-thing-forward-%s" thing)
           major-mode)
@@ -509,7 +499,6 @@ checked."
 ;; forward/backward is defined according to https://www.gnu.org/software/emacs/manual/html_node/emacs/Bidirectional-Editing.html
 ;;
 (defun easy-kill-thing-forward (n &optional which-edge)
-  (message "In easy-kill-thing-forward\tn=%s\twhich-edge=%s\tpoint=%s" n which-edge (point))
   (when (and (easy-kill-get thing) (/= n 0))
     (let* ((step (if (cl-minusp n) -1 +1))
            (thing (easy-kill-get thing))
@@ -522,26 +511,15 @@ checked."
            (end (easy-kill-get end))
            (front (cond
 		   (  (eq which-edge 'backward)
-		      (message "\tBackward edge!")
 		      start)
 		   (  t
-		      (message "\tForward edges")
 		      end)))
-	   (UNUSED (progn
-		     (message "\tstart=%s\tend=%s\tbounds1=%s\tfront=%s\tpoint=%s" start end bounds1 front (point) )
-		     (message "\torigin-thing-start=%s\torigin-thing-end=%s" origin-thing-start origin-thing-end)
-		     ) )
 	   (new-front (save-excursion
 			(goto-char front)
-			(message "\tstarting point to %s" (point))
 			(with-demoted-errors
 			    (dotimes (_ (abs n))
                               (easy-kill-thing-forward-1 thing step)))
-			(message "\tmoved point to %s" (point))
 			(point))))
-      (message "\tbefore adjust candidate\tstart=%s\tend=%s\tfront = %s new-front=%s" start end front new-front)
-      ;;      (message "\tOLD list=%s" (sort (cons new-front bounds1) #'< ))
-      (message "(max new-front origin-thing-end )=%s" (max new-front origin-thing-end ))
       (pcase (and (/= front new-front)
 		  (cond
 		   ( (eq which-edge 'backward)
@@ -553,7 +531,6 @@ checked."
 			 (list start (max new-front origin-thing-end ))
 		       (list start new-front)))))
 	(`(,start ,end)
-	 (message "about to adjust candidate\tstart=%s\tend=%s" start end)
 	 (easy-kill-adjust-candidate thing start end)
 	 t) ) ) ) )
 
@@ -564,7 +541,6 @@ checked."
            (`(,_ ,th . ,_) th)
            (`(,_ . ,th) th))
          (prefix-numeric-value current-prefix-arg)))
-  (message "======================== easy-kill-thing =======================")
   (let* ((thing (or thing (easy-kill-get thing)))
          (n (or n 1))
          (handler (and (not inhibit-handler)
