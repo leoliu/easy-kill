@@ -214,6 +214,37 @@
       (easy-kill-thing 'list)
       (should (string= "dummy" (easy-kill-candidate))))))
 
+(ert-deftest test-easy-kill-on-buffer ()
+  (with-temp-buffer
+    (insert "line 1\n")
+    (insert "line 2\n")
+    (insert "line 3\n")
+    (forward-line -2)
+    (forward-word)
+    (easy-kill-on-buffer 1)
+    (easy-kill-save-candidate)
+    (should (string= (car kill-ring) "line 1\nline 2\nline 3\n"))
+
+    (easy-kill-on-buffer-before-point 1)
+    (easy-kill-save-candidate)
+    (should (string= (car kill-ring) "line 1\nline"))
+    (easy-kill-on-buffer-before-point '-)
+    (easy-kill-save-candidate)
+    (should (string= (car kill-ring) "line 1\n"))
+    (easy-kill-on-buffer-before-point '+)
+    (easy-kill-save-candidate)
+    (should (string= (car kill-ring) "line 1\nline 2\n"))
+
+    (easy-kill-on-buffer-after-point 1)
+    (easy-kill-save-candidate)
+    (should (string= (car kill-ring) " 2\nline 3\n"))
+    (easy-kill-on-buffer-after-point '-)
+    (easy-kill-save-candidate)
+    (should (string= (car kill-ring) "line 3\n"))
+    (easy-kill-on-buffer-after-point '+)
+    (easy-kill-save-candidate)
+    (should (string= (car kill-ring) "line 2\nline 3\n"))))
+
 (ert-deftest test-js2-mode ()
   :expected-result :failed
   (let ((js "function View(name, options) {
