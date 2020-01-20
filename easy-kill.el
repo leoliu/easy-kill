@@ -556,8 +556,8 @@ checked."
      (pcase (if (eq (easy-kill-get mark) 'end)
                 (list end beg) (list beg end))
        (`(,m ,pt)
-        (set-mark m)
-        (goto-char pt)))
+        (set-mark pt)
+        (goto-char m)))
      (activate-mark))))
 
 (defun easy-kill-exchange-point-and-mark ()
