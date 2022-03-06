@@ -97,6 +97,11 @@ convention, or by defining new functions named like
 NEWS
 ~~~~
 
+0.9.5
++++++
+
+#. [BREAKING] Emacs >= 25 required
+
 0.9.4
 +++++
 

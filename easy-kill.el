@@ -1,11 +1,11 @@
 ;;; easy-kill.el --- kill & mark things easily       -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2013-2018  Free Software Foundation, Inc.
+;; Copyright (C) 2013-2022  Free Software Foundation, Inc.
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
-;; Version: 0.9.4
+;; Version: 0.9.5
 ;; Package-Type: simple
-;; Package-Requires: ((emacs "24") (cl-lib "0.5"))
+;; Package-Requires: ((emacs "25") (cl-lib "0.5"))
 ;; Keywords: killing, convenience
 ;; Created: 2013-08-12
 ;; URL: https://github.com/leoliu/easy-kill
@@ -42,35 +42,6 @@
 
 (require 'cl-lib)
 (require 'thingatpt)
-(require 'gv nil t)                     ;For `defsetf'.
-(eval-when-compile (require 'cl))       ;For `defsetf'.
-
-(eval-and-compile
-  (cond
-   ((fboundp 'set-transient-map) nil)
-   ((fboundp 'set-temporary-overlay-map) ; new in 24.3
-    (defalias 'set-transient-map 'set-temporary-overlay-map))
-   (t
-    (defun set-transient-map (map &optional keep-pred)
-      (let* ((clearfunsym (make-symbol "clear-temporary-overlay-map"))
-             (overlaysym (make-symbol "t"))
-             (alist (list (cons overlaysym map)))
-             (clearfun
-              `(lambda ()
-                 (unless ,(cond ((null keep-pred) nil)
-                                ((eq t keep-pred)
-                                 `(eq this-command
-                                      (lookup-key ',map
-                                                  (this-command-keys-vector))))
-                                (t `(funcall ',keep-pred)))
-                   (set ',overlaysym nil) ;Just in case.
-                   (remove-hook 'pre-command-hook ',clearfunsym)
-                   (setq emulation-mode-map-alists
-                         (delq ',alist emulation-mode-map-alists))))))
-        (set overlaysym overlaysym)
-        (fset clearfunsym clearfun)
-        (add-hook 'pre-command-hook clearfunsym)
-        (push alist emulation-mode-map-alists))))))
 
 (defcustom easy-kill-alist '((?w word           " ")
                              (?s sexp           "\n")
@@ -243,14 +214,9 @@ The value is the function's symbol if non-nil."
   (cons (overlay-start easy-kill-candidate)
         (overlay-end easy-kill-candidate)))
 
-;;; Note: gv-define-setter not available in 24.1 and 24.2
-;; (gv-define-setter easy-kill--bounds (val)
-;;   (macroexp-let2 macroexp-copyable-p v val
-;;     `(move-overlay easy-kill-candidate (car ,v) (cdr ,v))))
-
-(defsetf easy-kill--bounds () (v)
-  `(let ((tmp ,v))
-     (move-overlay easy-kill-candidate (car tmp) (cdr tmp))))
+(gv-define-setter easy-kill--bounds (val)
+  (macroexp-let2 macroexp-copyable-p v val
+    `(move-overlay easy-kill-candidate (car ,v) (cdr ,v))))
 
 (defmacro easy-kill-get (prop)
   "Get the value of the kill candidate's property PROP.
@@ -286,9 +252,6 @@ Use `setf' to change property value."
         (overlay-put o 'origin-indicator i)))
     (setq easy-kill-candidate o)
     (save-restriction
-      ;; Work around http://debbugs.gnu.org/15808; not needed in 24.4.
-      (narrow-to-region (max (point-min) (- (point) 1000))
-                        (min (point-max) (+ (point) 1000)))
       (let ((easy-kill-inhibit-message t))
         (cl-dolist (thing easy-kill-try-things)
           (easy-kill-thing thing n)
