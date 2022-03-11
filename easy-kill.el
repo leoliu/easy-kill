@@ -54,10 +54,7 @@
   "A list of (CHAR THING APPEND).
 CHAR is used immediately following `easy-kill' to select THING.
 APPEND is optional and if non-nil specifies the separator (a
-string) for appending current selection to previous kill.
-
-Note: each element can also be (CHAR . THING) but this is
-deprecated."
+string) for appending current selection to previous kill."
   :type '(repeat (list character symbol
                        (choice string (const :tag "None" nil))))
   :group 'killing)
@@ -72,12 +69,12 @@ deprecated."
   :type '(choice (const :tag "None" nil) key-sequence)
   :group 'killing)
 
-(defcustom easy-kill-try-things '(url email line)
+(defcustom easy-kill-try-things '(url email uuid line)
   "A list of things for `easy-kill' to try."
   :type '(repeat symbol)
   :group 'killing)
 
-(defcustom easy-mark-try-things '(url email sexp)
+(defcustom easy-mark-try-things '(url email uuid sexp)
   "A list of things for `easy-mark' to try."
   :type '(repeat symbol)
   :group 'killing)
@@ -199,11 +196,8 @@ The value is the function's symbol if non-nil."
     (princ "\n")
     (princ (easy-kill--fmt "---" "-----" "---------"))
     (princ "\n\n")
-    (princ (mapconcat (lambda (x) (pcase x
-                                    (`(,c ,thing ,sep)
-                                     (easy-kill--fmt c thing sep))
-                                    ((or `(,c ,thing) `(,c . ,thing))
-                                     (easy-kill--fmt c thing))))
+    (princ (mapconcat (pcase-lambda (`(,c ,thing ,sep))
+                        (easy-kill--fmt c thing sep))
                       easy-kill-alist "\n"))
     (princ "\n\n")
     (princ (substitute-command-keys "\\{easy-kill-base-map}"))))
@@ -369,16 +363,14 @@ A thing is opted out of cycling if in `easy-kill-cycle-ignored'."
       (easy-kill-cycle next))))
 
 (defun easy-kill-cycle-next (thing depth)
-  (cl-flet ((thing-name (thing)
-              (if (symbolp (cdr thing)) (cdr thing) (cl-second thing))))
-    (let ((next (thing-name
-                 (car (or (cl-loop for (head . tail) on easy-kill-alist
-                                   when (eq thing (thing-name head))
-                                   return tail)
-                          easy-kill-alist)))))
-      (cond ((not (memq next easy-kill-cycle-ignored)) next)
-            ((> depth 0) (easy-kill-cycle-next next (1- depth)))
-            (t (user-error "Nothing to cycle"))))))
+  (let ((next (cl-second
+               (car (or (cl-loop for (head . tail) on easy-kill-alist
+                                 when (eq thing (cl-second head))
+                                 return tail)
+                        easy-kill-alist)))))
+    (cond ((not (memq next easy-kill-cycle-ignored)) next)
+          ((> depth 0) (easy-kill-cycle-next next (1- depth)))
+          (t (user-error "Nothing to cycle")))))
 
 (defun easy-kill-digit-argument (n)
   "Expand selection by N number of things.
@@ -465,9 +457,7 @@ checked."
 (defun easy-kill-thing (&optional thing n inhibit-handler)
   ;; N can be -, + and digits
   (interactive
-   (list (pcase (assq last-command-event easy-kill-alist)
-           (`(,_ ,th . ,_) th)
-           (`(,_ . ,th) th))
+   (list (cl-second (assq last-command-event easy-kill-alist))
          (prefix-numeric-value current-prefix-arg)))
   (let* ((thing (or thing (easy-kill-get thing)))
          (n (or n 1))
