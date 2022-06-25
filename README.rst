@@ -32,6 +32,9 @@ active region, url, email and finally current line (See
 #. ``M-w D``: save current defun name
 #. ``M-w f``: save file at point
 #. ``M-w b``: save ``buffer-file-name`` or ``default-directory``.
+#. ``M-w a``: save the whole buffer content
+#. ``M-w <``: save the buffer content before point
+#. ``M-w >``: save the buffer content after point
    ``-`` changes the kill to the directory name, ``+`` to full name
    and ``0`` to basename.
 
