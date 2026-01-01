@@ -631,7 +631,7 @@ duplicate.  `rectangle-mark-mode' is also supported.  N specifies the
 number of copies to insert."
   (interactive "*p")
   (or
-   (pcase (easy-kill-get bounds)
+   (pcase (if easy-kill-candidate (easy-kill-get bounds) '(nil . nil))
      (`(,x . ,x)
       (ignore x)
       (cond
