@@ -94,6 +94,67 @@
     (should (string= (buffer-substring-no-properties (point-min) (point)) "abc "))
     (should (string= (buffer-substring-no-properties (point) (point-max)) " ghi"))))
 
+(ert-deftest test-easy-dup-region-after ()
+  (with-temp-buffer
+    (transient-mark-mode 1)
+    (insert "abc def")
+    (goto-char (point-min))
+    (set-mark (point))
+    (forward-word 1)
+    (activate-mark)
+    (let ((orig-point (point))
+          (orig-mark (mark t)))
+      (easy-dup 2)
+      (should (string= "abcabcabc def" (buffer-string)))
+      (should (= orig-point (point)))
+      (should (= orig-mark (mark t)))
+      (should (string= "abc"
+                       (buffer-substring-no-properties (point-min) (point)))))))
+
+(ert-deftest test-easy-dup-no-region-uses-easy-mark ()
+  (let ((easy-dup-try-things '(word)))
+    (with-temp-buffer
+      (insert "abc def")
+      (goto-char (point-min))
+      (easy-dup 1)
+      (should (string= "abcabc def" (buffer-string)))
+      (should (= (point) (easy-kill-get end)))
+      (should (= (mark t) (easy-kill-get start)))
+      (should (string= "abc"
+                       (buffer-substring-no-properties (point-min) (point)))))))
+
+(ert-deftest test-easy-dup-before-updates-origin ()
+  (with-temp-buffer
+    (insert "abc def")
+    (goto-char (point-min))
+    (search-forward "def")
+    (backward-word 1)
+    (easy-kill)
+    (easy-kill-thing 'word)
+    (let ((orig-mark (mark t)))
+      (easy-dup-before 1)
+      (should (string= "abc defdef" (buffer-string)))
+      (should (= (easy-kill-get origin) (easy-kill-get start)))
+      (should (= (point) (easy-kill-get start)))
+      (should (equal orig-mark (mark t)))
+      (should (string= "abc def"
+                       (buffer-substring-no-properties (point-min) (point)))))))
+
+(ert-deftest test-easy-dup-with-easy-mark ()
+  (with-temp-buffer
+    (insert "abc def")
+    (goto-char (point-min))
+    (easy-mark 1)
+    (easy-kill-thing 'word)
+    (let ((orig-point (point))
+          (orig-mark (mark t)))
+      (easy-dup 1)
+      (should (string= "abcabc def" (buffer-string)))
+      (should (= orig-point (point)))
+      (should (= orig-mark (mark t)))
+      (should (string= "abc"
+                       (buffer-substring-no-properties (point-min) (point)))))))
+
 (ert-deftest test-easy-kill-help ()
   (let ((easy-kill-alist '((?w word)
                            (?s sexp)
