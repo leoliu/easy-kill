@@ -80,6 +80,18 @@ sexp even when in the middle of one. ::
 
    (global-set-key [remap mark-sexp] 'easy-mark)
 
+easy-dup
+~~~~~~~~
+
+``easy-dup`` (``easy-dup-after``) and ``easy-dup-before`` duplicate
+the current selection after or before it respectively.  When not in
+easy-kill/easy-mark, the active region is used if available.  If there
+is no active region, easy-mark is entered using
+``easy-dup-try-things`` to select something to duplicate.
+``rectangle-mark-mode`` is also supported.
+
+A numeric prefix argument specifies the number of copies to insert.
+
 Install
 ~~~~~~~
 
