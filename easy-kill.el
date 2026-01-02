@@ -484,13 +484,24 @@ checked."
       (easy-kill-adjust-candidate (easy-kill-get thing)))))
 
 (easy-kill-defun easy-kill-abort ()
+  "Abort `easy-kill'/`easy-mark'."
   (interactive)
-  (when (easy-kill-get mark)
-    ;; The after-string may interfere with `goto-char'.
-    (overlay-put (easy-kill-get origin-indicator) 'after-string nil)
-    (goto-char (easy-kill-get origin))
-    (setq deactivate-mark t))
+  (and (easy-kill-get mark)
+       (easy-kill-terminate))
   (ding))
+
+(easy-kill-defun easy-kill-terminate ()
+  "Terminate `easy-mark', or save selection and terminate `easy-kill'."
+  (interactive)
+  (if (easy-kill-get mark)
+      (progn
+        ;; The after-string may interfere with `goto-char'.
+        (overlay-put (easy-kill-get origin-indicator) 'after-string nil)
+        (goto-char (easy-kill-get origin))
+        (setq deactivate-mark t))
+    (pcase (easy-kill-get bounds)
+      (`(,x . ,x) (ignore x))
+      (`(,beg . ,end) (kill-ring-save beg end)))))
 
 (easy-kill-defun easy-kill-region ()
   "Kill current selection and exit."
@@ -500,6 +511,7 @@ checked."
     (`(,beg . ,end) (kill-region beg end))))
 
 (easy-kill-defun easy-kill-mark-region ()
+  "Mark current selection and exit."
   (interactive)
   (pcase (easy-kill-get bounds)
     (`(,x . ,x) (ignore x) (easy-kill-echo "Empty region"))
