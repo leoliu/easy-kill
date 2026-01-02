@@ -79,6 +79,11 @@ string) for appending current selection to previous kill."
   :type '(repeat symbol)
   :group 'killing)
 
+(defcustom easy-dup-try-things '(line)
+  "A list of things for `easy-dup-before' and `easy-dup-after' to try."
+  :type '(repeat symbol)
+  :group 'killing)
+
 (defface easy-kill-selection '((t (:inherit secondary-selection)))
   "Faced used to highlight kill candidate."
   :group 'killing)
@@ -614,6 +619,63 @@ Temporally activate additional key bindings as follows:
     (unless (easy-kill-get thing)
       (setf (easy-kill-get thing) 'sexp)
       (easy-kill-thing 'sexp n))))
+
+(declare-function rectangle--duplicate-right "rect" (n displacement))
+
+;;;###autoload
+(defun easy-dup (&optional n before)
+  "Insert a copy of the current selection after it, or before it if BEFORE.
+When not in easy-kill/easy-mark, use the active region if available, or
+enter easy-mark using `easy-dup-try-things' to select something to
+duplicate.  `rectangle-mark-mode' is also supported.  N specifies the
+number of copies to insert."
+  (interactive "*p")
+  (or
+   (pcase (if easy-kill-candidate (easy-kill-get bounds) '(nil . nil))
+     (`(,x . ,x)
+      (ignore x)
+      (cond
+       ((bound-and-true-p rectangle-mark-mode)
+        (rectangle--duplicate-right n (if before n 0))
+        t)
+       ((use-region-p)
+        (let* ((beg (region-beginning))
+               (end (region-end))
+               (text (buffer-substring beg end)))
+          (save-excursion
+            (goto-char (if before beg end))
+            (if before
+                (dotimes (_ (or n 1)) (insert-before-markers text))
+              (dotimes (_ (or n 1)) (insert text)))))
+        t)
+       (t (let ((easy-mark-try-things easy-dup-try-things))
+            (easy-mark 1)
+            nil)))))
+   (pcase (easy-kill-get bounds)
+     (`(,x . ,x) (ignore x) (easy-kill-echo "Empty region"))
+     (`(,beg . ,end)
+      (let ((text (buffer-substring beg end)))
+        (save-excursion
+          (goto-char (if before beg end))
+          (if before
+              (dotimes (_ (or n 1)) (insert-before-markers text))
+            (dotimes (_ (or n 1)) (insert text))))
+        (and before
+             (setf (easy-kill-get origin) (easy-kill-get start)))))))
+  (setq deactivate-mark nil))
+
+;;;###autoload
+(defalias 'easy-dup-after #'easy-dup)
+
+;;;###autoload
+(defun easy-dup-before (&optional n)
+  "Insert a copy of the current selection before it.
+When not in easy-kill/easy-mark, use the active region if available, or
+enter easy-mark using `easy-dup-try-things' to select something to
+duplicate.  `rectangle-mark-mode' is also supported.  N specifies the
+number of copies to insert."
+  (interactive "*p")
+  (easy-dup n t))
 
 ;;;; Extended things
 
