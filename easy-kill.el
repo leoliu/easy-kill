@@ -74,9 +74,27 @@ string) for appending current selection to previous kill."
   :type '(repeat symbol)
   :group 'killing)
 
+(defcustom easy-kill-exit-hook nil
+  "A list of functions to be called when `easy-kill' exits.
+
+At the moment they are run, the current candidate is still accessible
+and `this-command' has the command that is to put an end to the
+easy-kill mode."
+  :type '(repeat function)
+  :group 'killing)
+
 (defcustom easy-mark-try-things '(url email uuid sexp)
   "A list of things for `easy-mark' to try."
   :type '(repeat symbol)
+  :group 'killing)
+
+(defcustom easy-mark-exit-hook nil
+  "A list of functions to be called when `easy-mark' exits.
+
+At the moment they are run, the current candidate is still accessible
+and `this-command' has the command that is to put an end to the
+easy-mark mode."
+  :type '(repeat function)
   :group 'killing)
 
 (defcustom easy-dup-try-things '(line)
@@ -572,8 +590,11 @@ checked."
                           (command-remapping cmd nil (list map)))))
                (ignore
                 (easy-kill-destroy-candidate)
-                (unless (or (easy-kill-get mark) (easy-kill-exit-p this-command))
-                  (easy-kill-save-candidate))))
+                (if (easy-kill-get mark)
+                    (run-hooks 'easy-mark-exit-hook)
+                  (or (easy-kill-exit-p this-command)
+                      (easy-kill-save-candidate))
+                  (run-hooks 'easy-kill-exit-hook))))
          (error (message "%s:%s" this-command (error-message-string err))
                 nil))))))
 
