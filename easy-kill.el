@@ -646,10 +646,12 @@ Temporally activate additional key bindings as follows:
 ;;;###autoload
 (defun easy-dup (&optional n before)
   "Insert a copy of the current selection after it, or before it if BEFORE.
-When not in easy-kill/easy-mark, use the active region if available, or
-enter easy-mark using `easy-dup-try-things' to select something to
-duplicate.  `rectangle-mark-mode' is also supported.  N specifies the
-number of copies to insert."
+When not in easy-kill/easy-mark, enter `easy-mark' mode using the active
+region if available, or using `easy-dup-try-things' to select something
+to duplicate.  When in `rectangle-mark-mode', duplicate the rectangle
+region and keep the mode active without entering `easy-mark'.
+
+N specifies the number of copies to insert."
   (interactive "*p")
   (or
    (pcase (if easy-kill-candidate (easy-kill-get bounds) '(nil . nil))
@@ -662,13 +664,14 @@ number of copies to insert."
        ((use-region-p)
         (let* ((beg (region-beginning))
                (end (region-end))
-               (text (buffer-substring beg end)))
-          (save-excursion
-            (goto-char (if before beg end))
-            (if before
-                (dotimes (_ (or n 1)) (insert-before-markers text))
-              (dotimes (_ (or n 1)) (insert text)))))
-        t)
+               (easy-kill-try-things nil))
+          (easy-kill-init-candidate 1 'mark)
+          (setf (easy-kill-get thing) 'word)
+          (setf (easy-kill-get bounds) (cons beg end))
+          (setf (easy-kill-get mark) 'start)
+          (easy-kill-indicate-origin)
+          (easy-kill-activate-keymap)
+          nil))
        (t (let ((easy-mark-try-things easy-dup-try-things))
             (easy-mark 1)
             nil)))))
@@ -691,10 +694,12 @@ number of copies to insert."
 ;;;###autoload
 (defun easy-dup-before (&optional n)
   "Insert a copy of the current selection before it.
-When not in easy-kill/easy-mark, use the active region if available, or
-enter easy-mark using `easy-dup-try-things' to select something to
-duplicate.  `rectangle-mark-mode' is also supported.  N specifies the
-number of copies to insert."
+When not in easy-kill/easy-mark, enter `easy-mark' mode using the active
+region if available, or using `easy-dup-try-things' to select something
+to duplicate.  When in `rectangle-mark-mode', duplicate the rectangle
+region and keep the mode active without entering `easy-mark'.
+
+N specifies the number of copies to insert."
   (interactive "*p")
   (easy-dup n t))
 
